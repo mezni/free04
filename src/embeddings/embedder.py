@@ -1,54 +1,80 @@
-from typing import List
-import numpy as np
+"""Real sentence-transformers embedding provider (FR-001, constitution XV).
 
-try:
-    from sentence_transformers import SentenceTransformer
-    _HAS_ST = True
-except ImportError:
-    _HAS_ST = False
+Primary API (plan.md / research.md):
+    embed(text) -> np.ndarray            # single string
+    embed_batch(texts) -> list[np.ndarray]
+    dimension() -> int
+
+Backward-compat aliases (Level 0 regression): embed_query == embed,
+embed_documents == embed_batch. The hash-based fallback is gone from the
+production path (constitution XV): if the model is unavailable we raise a
+clear, actionable error (spec Edge Case).
+"""
+
+
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+class EmbedderError(RuntimeError):
+    """Embedding model failed to load or embed (spec Edge Case)."""
 
 
 class Embedder:
-    """Embedding protocol: embed_documents, embed_query, dimension.
+    """Embedding protocol isolated behind an application interface."""
 
-    Level 0 default uses `sentence-transformers` with `all-MiniLM-L6-v2`
-    (384-dim). The protocol is provider-agnostic so Level 1+ can swap in
-    API-backed providers without touching retrieval code.
-    """
-
-    def __init__(self, provider: str = "local-sentence-transformers",
-                 model: str = "all-MiniLM-L6-v2"):
+    def __init__(
+        self,
+        provider: str = "local-sentence-transformers",
+        model: str = DEFAULT_MODEL,
+    ):
         self.provider = provider
         self.model_name = model
-        self._dimension = 384 if model == "all-MiniLM-L6-v2" else 384
-        self._model = None
+        self._dimension: int | None = None
+        self._model: SentenceTransformer | None = None
 
-        if _HAS_ST and provider == "local-sentence-transformers":
-            self._model = SentenceTransformer(model)
+        if provider == "local-sentence-transformers":
+            try:
+                self._model = SentenceTransformer(model)
+            except Exception as exc:  # network / offline / bad name
+                raise EmbedderError(
+                    f"Failed to load embedding model '{model}'. Check the model "
+                    f"name and network access (HuggingFace). Detail: {exc}"
+                ) from exc
+        else:
+            raise EmbedderError(f"Unsupported embedding provider: {provider}")
 
-    def embed_documents(self, documents: List[str]) -> List[np.ndarray]:
-        """Embed a list of document strings."""
-        if self._model is not None:
-            return self._model.encode(documents).tolist()
-        # Fallback: deterministic hash-based embeddings
-        return [self._hash_embed(text) for text in documents]
+    def embed(self, text: str) -> np.ndarray:
+        """Embed a single string into a float vector (higher=closer)."""
+        if self._model is None:
+            raise EmbedderError("Embedding model is not loaded")
+        return self._model.encode(text).astype(np.float32)
 
-    def embed_query(self, question: str) -> np.ndarray:
-        """Embed a single query string."""
-        if self._model is not None:
-            return self._model.encode([question])[0]
-        return self._hash_embed(question)
+    def embed_batch(self, texts: list[str]) -> list[np.ndarray]:
+        """Embed a batch of strings in one model call."""
+        if self._model is None:
+            raise EmbedderError("Embedding model is not loaded")
+        if not texts:
+            return []
+        encoded = self._model.encode(texts)
+        return [vec.astype(np.float32) for vec in encoded]
 
     def dimension(self) -> int:
         """Return the embedding vector dimension."""
+        if self._dimension is None:
+            if self._model is None:
+                raise EmbedderError("Embedding model is not loaded")
+            getter = getattr(self._model, "get_embedding_dimension", None)
+            if getter is None:
+                getter = self._model.get_sentence_embedding_dimension
+            self._dimension = int(getter() or 0)
         return self._dimension
 
-    def _hash_embed(self, text: str) -> np.ndarray:
-        """Fallback hash-based embedding when sentence-transformers is unavailable."""
-        hash_val = hash(text) & 0xFFFFFFFF
-        np.random.seed(hash_val % (2 ** 32))
-        vec = np.random.rand(self._dimension).astype(np.float32)
-        norm = np.linalg.norm(vec)
-        if norm > 0:
-            vec = vec / norm
-        return vec
+    # -- Level 0 backward-compatible aliases ---------------------------------
+    def embed_documents(self, documents: list[str]) -> list[np.ndarray]:
+        return self.embed_batch(documents)
+
+    def embed_query(self, question: str) -> np.ndarray:
+        return self.embed(question)

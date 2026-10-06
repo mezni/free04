@@ -1,13 +1,14 @@
 """Deterministic tests for ingestion chunker - must pass before implementation."""
 
 import sys
-import os
 from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from domain import Document, Chunk
+import pytest
+
+from domain import Document
 from ingestion.chunker import chunk_document
 
 
@@ -28,7 +29,11 @@ def test_chunk_document_basic():
         assert chunk.document_id == "testdoc"
         assert chunk.document_name == "test.md"
         assert chunk.source == "test.md"
+        # chunk_index is 1-based and matches chunk_id position
+        assert chunk.chunk_index == i + 1
+        assert chunk.chunk_id == f"testdoc#{i + 1:04d}"
     print(f"✓ Basic chunking: {len(chunks)} chunks produced")
+    print(f"✓ chunk_index preserved: {[c.chunk_index for c in chunks]}")
 
 
 def test_chunk_document_undersized():
@@ -54,23 +59,14 @@ def test_chunk_document_chunk_size_overlap_validation():
         content="Some content here",
     )
     # overlap >= chunk_size should fail
-    try:
+    with pytest.raises(ValueError):
         chunk_document(doc, chunk_size=50, chunk_overlap=50)
-        assert False, "Should have raised ValueError for overlap >= chunk_size"
-    except ValueError:
-        pass
 
     # negative chunk_size should fail
-    try:
+    with pytest.raises(ValueError):
         chunk_document(doc, chunk_size=0, chunk_overlap=10)
-        assert False, "Should have raised ValueError for chunk_size <= 0"
-    except ValueError:
-        pass
 
     # negative overlap should fail
-    try:
+    with pytest.raises(ValueError):
         chunk_document(doc, chunk_size=100, chunk_overlap=-1)
-        assert False, "Should have raised ValueError for negative overlap"
-    except ValueError:
-        pass
 print("✓ Chunker tests passed")

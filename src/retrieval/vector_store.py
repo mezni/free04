@@ -1,95 +1,157 @@
+"""ChromaDB-backed vector store (FR-002/015/016, constitution XV).
+
+This repository owns all ChromaDB access — no Chroma-specific API leaks
+outside src/retrieval/ (FR-015). Embeddings are supplied explicitly by the
+Embedder (never ChromaDB's default embedding function).
+
+ChromaDB returns *distances*; scores are converted here as
+`score = 1 - distance` so every RetrievalResult.score is a cosine similarity
+where higher = more similar (contracts/store-and-retriever.md).
+"""
+
+from pathlib import Path
+
+import chromadb
 import numpy as np
-from typing import List, Tuple
 
 from domain import Chunk, RetrievalResult
 
 
 class VectorStore:
-    """In-memory numpy vector store with L2-normalized embeddings.
+    """Persistent local ChromaDB vector store with metadata filtering."""
 
-    Stores chunks and provides exact brute-force search via cosine similarity
-    (computed as dot product of L2-normalized vectors).
-    """
-
-    def __init__(self, dimension: int):
-        if dimension <= 0:
+    def __init__(
+        self,
+        *,
+        persist_directory: str,
+        collection_name: str,
+        dimension: int | None = None,
+        distance_metric: str = "cosine",
+    ):
+        if dimension is not None and dimension <= 0:
             raise ValueError(f"dimension must be > 0, got {dimension}")
+
+        self.persist_directory = persist_directory
+        self.collection_name = collection_name
         self.dimension = dimension
-        self._matrix: np.ndarray | None = None
-        self._chunks: List[Chunk] = []
-        self._added = False
+        self.distance_metric = distance_metric
 
-    def add(self, chunks: List[Chunk]) -> None:
-        """Add chunks to the vector store.
+        Path(persist_directory).mkdir(parents=True, exist_ok=True)
+        self._client = chromadb.PersistentClient(path=persist_directory)
+        self._collection: chromadb.Collection | None = None
+        self._ensure_collection()
 
-        Chunks are L2-normalized and stored in a single (N, dim) float32 matrix.
-        """
+    def _ensure_collection(self) -> None:
+        try:
+            self._collection = self._client.get_collection(
+                name=self.collection_name,
+                # Vector DB isolates here (FR-015). Embeddings always supplied
+                # explicitly, so we disable the default embedding function.
+                embedding_function=None,
+            )
+        except Exception:
+            # Collection does not exist yet — create on demand.
+            self._collection = self._client.create_collection(
+                name=self.collection_name,
+                embedding_function=None,
+                metadata={"hnsw:space": self.distance_metric},
+            )
+
+    def add(self, chunks: list[Chunk], embeddings: list[np.ndarray]) -> None:
+        """Store chunks with their pre-computed embeddings and metadata."""
         if not chunks:
             return
+        if len(chunks) != len(embeddings):
+            raise ValueError(
+                f"chunks ({len(chunks)}) and embeddings ({len(embeddings)}) must match"
+            )
 
-        # Extract embeddings from chunks (we'll use chunk content as proxy
-        # for embeddings in this baseline; actual embeddings come from the embedder)
-        vectors = np.array([self._hash_to_vector(chunk.content) for chunk in chunks],
-                          dtype=np.float32)
+        assert self._collection is not None
+        try:
+            self._collection.add(
+                ids=[c.chunk_id for c in chunks],
+                embeddings=[vec.tolist() for vec in embeddings],
+                documents=[c.content for c in chunks],
+                metadatas=[
+                    {
+                        "document_id": c.document_id,
+                        "document_name": c.document_name,
+                        "source": c.source,
+                        "chunk_id": c.chunk_id,
+                        "chunk_index": c.chunk_index,
+                    }
+                    for c in chunks
+                ],
+            )
+        except Exception as exc:
+            raise RuntimeError(f"ChromaDB add failed: {exc}") from exc
 
-        # L2-normalize the vectors
-        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-        norms = np.where(norms == 0, 1, norms)  # avoid div by zero
-        vectors = vectors / norms
+    def reset(self) -> None:
+        """Delete and recreate the collection (FR-016: fresh state per ingest)."""
+        try:
+            self._client.delete_collection(name=self.collection_name)
+        except Exception:
+            pass
+        self._collection = self._client.create_collection(
+            name=self.collection_name,
+            embedding_function=None,
+            metadata={"hnsw:space": self.distance_metric},
+        )
 
-        if self._matrix is None:
-            self._matrix = vectors
-            self._chunks = chunks
-        else:
-            self._matrix = np.vstack([self._matrix, vectors])
-            self._chunks.extend(chunks)
-        self._added = True
+    def count(self) -> int:
+        """Number of stored vectors."""
+        assert self._collection is not None
+        try:
+            return self._collection.count()
+        except Exception:
+            return 0
 
-    def search(self, query_vector: np.ndarray, top_k: int) -> List[RetrievalResult]:
-        """Search for the top-k most similar chunks to the query vector.
-
-        Uses cosine similarity via dot product (vectors are L2-normalized).
-        Returns results ordered by descending score.
-        """
-        if self._matrix is None:
+    def query(
+        self,
+        query_embedding: np.ndarray,
+        top_k: int,
+        metadata_filter: dict | None = None,
+    ) -> list[RetrievalResult]:
+        """Cosine similarity search; returns results ordered by descending score."""
+        assert self._collection is not None
+        if self.count() == 0:
             return []
 
-        # Normalize query vector
-        query = query_vector.astype(np.float32)
-        query_norm = np.linalg.norm(query)
-        if query_norm > 0:
-            query = query / query_norm
+        # ChromaDB raises if n_results exceeds collection size — clamp it.
+        k = min(max(top_k, 1), self.count())
+        where = metadata_filter or None
 
-        # Compute cosine similarities via dot product
-        scores = self._matrix @ query
+        try:
+            result = self._collection.query(
+                query_embeddings=[query_embedding.tolist()],
+                n_results=k,
+                where=where,
+                include=["documents", "metadatas", "distances"],
+            )
+        except Exception as exc:
+            raise RuntimeError(f"ChromaDB query failed: {exc}") from exc
 
-        # Get top-k indices in descending order
-        k = min(top_k, len(self._matrix))
-        top_indices = np.argsort(-scores)[:k]
+        # Convert distances to scores (higher = more similar).
+        results: list[RetrievalResult] = []
+        ids: list[str] = list(result.get("ids") or [[]])[0]
+        documents: list[str] = list(result.get("documents") or [[]])[0]
+        raw_metadatas = list(result.get("metadatas") or [[]])[0]
+        distances: list[float] = list(result.get("distances") or [[]])[0]
 
-        # Build retrieval results
-        results: List[RetrievalResult] = []
-        for rank, idx in enumerate(top_indices, start=1):
-            chunk = self._chunks[idx]
-            score = float(scores[idx])
+        for rank, chunk_id in enumerate(ids, start=1):
+            meta = dict(raw_metadatas[rank - 1] or {})
+            score = float(1.0 - float(distances[rank - 1]))
+            content = documents[rank - 1] or ""
+            chunk = Chunk(
+                chunk_id=chunk_id,
+                content=content,
+                document_id=str(meta.get("document_id", "") or ""),
+                document_name=str(meta.get("document_name", "") or ""),
+                source=str(meta.get("source", "") or ""),
+                chunk_index=int(str(meta.get("chunk_index", 0))),
+                metadata={k: v for k, v in meta.items() if k not in
+                          ("document_id", "document_name", "source", "chunk_id", "chunk_index")},
+            )
             results.append(RetrievalResult(chunk=chunk, score=score, rank=rank))
 
         return results
-
-    def _hash_to_vector(self, text: str) -> np.ndarray:
-        """Convert text to a deterministic vector using a simple hash.
-
-        In a real system, this would be the actual embedding from the embedder.
-        For the baseline, we use a hash-based approach to produce a deterministic
-        vector of the expected dimension.
-        """
-        # Use a simple hash to generate a deterministic vector
-        hash_val = hash(text) & 0xFFFFFFFF
-        np.random.seed(hash_val % (2 ** 32))
-        vec = np.random.rand(self.dimension).astype(np.float32)
-
-        # L2-normalize
-        norm = np.linalg.norm(vec)
-        if norm > 0:
-            vec = vec / norm
-        return vec

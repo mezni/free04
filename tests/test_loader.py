@@ -5,6 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+import pytest
+
 from ingestion.loader import discover_documents
 
 
@@ -24,20 +26,15 @@ def test_discover_documents_with_existing_dir():
 
 def test_discover_documents_missing_dir():
     """Test that discover_documents fails with clear error for missing directory."""
-    try:
+    with pytest.raises(FileNotFoundError, match="not found"):
         discover_documents("/tmp/nonexistent_directory_xyz")
-        assert False, "Should have raised FileNotFoundError"
-    except FileNotFoundError as e:
-        assert "not found" in str(e).lower() or "nonexistent" in str(e).lower()
 
 
 def test_discover_documents_empty_dir():
     """Test that discover_documents fails with clear error for empty directory."""
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        try:
+        with pytest.raises(FileNotFoundError):
             discover_documents(tmpdir)
-            assert False, "Should have raised FileNotFoundError"
-        except FileNotFoundError:
-            pass  # Expected
 print("✓ Loader tests passed")

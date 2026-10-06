@@ -1,59 +1,79 @@
-"""Deterministic tests for CLI output contract - must pass before implementation."""
+"""Deterministic CLI protocol tests for the Typer-based CLI (constitution XII)."""
 
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from typer.testing import CliRunner
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from cli import app
+
+runner = CliRunner()
+
+
+def _pipeline_results(**over):
+    base = {
+        "question": "How do I troubleshoot 5G packet loss?",
+        "answer": "Begin by checking the base station cell for RF interference",
+        "retrieved_documents": ["5g_packet_loss.md"],
+        "retrieval_scores": [0.81],
+        "used_context": True,
+        "abstention": "",
+    }
+    base.update(over)
+    return base
 
 
 def test_cli_protocol_four_blocks():
-    """Test that CLI output has four labelled blocks: Question, Retrieved Docs, Answer, exit code 0."""
-    # Mock the pipeline to avoid needing actual embeddings/LLM
-    from cli import run_cli, setup_pipeline
+    """Query prints the four labelled blocks and exits 0."""
+    mock_pipeline = MagicMock()
+    mock_pipeline.retrieve.return_value = []
+    mock_pipeline.run.return_value = _pipeline_results()
 
-    with patch('cli.RAGPipeline') as mock_pipeline_class:
-        mock_pipeline = MagicMock()
-        mock_pipeline.run.return_value = {
-            "question": "How do I troubleshoot 5G packet loss?",
-            "answer": "Begin by checking the base station cell for RF interference",
-            "retrieved_documents": ["5g_packet_loss.md"],
-            "retrieval_scores": [0.81],
-            "used_context": True,
-            "abstention": "",
-        }
-        mock_pipeline_class.return_value = mock_pipeline
+    with patch("cli.setup_pipeline", MagicMock(return_value=mock_pipeline)):
+        result = runner.invoke(app, ["query", "How do I troubleshoot 5G packet loss?"])
 
-        with patch('cli.setup_pipeline') as mock_setup:
-            mock_setup.return_value = mock_pipeline
-
-            # We can't easily test the full CLI without args,
-            # but we can verify the protocol structure
-            print("✓ CLI protocol structure verified")
+    assert result.exit_code == 0, result.output
+    assert "Question:" in result.output
+    assert "Retrieved Documents:" in result.output
+    assert "Answer:" in result.output
+    assert "5g_packet_loss.md" in result.output
+    assert "(score: 0.81)" in result.output
+    print("✓ CLI protocol four blocks")
 
 
-def test_cli_empty_question():
-    """Test that empty question returns exit code 1."""
-    import argparse
-    from cli import run_cli
+def test_cli_empty_question_returns_exit_1():
+    """Empty question -> exit code 1 (usage error)."""
+    result = runner.invoke(app, ["query", "   "])
+    assert result.exit_code == 1
+    assert "cannot be empty" in result.stderr or "empty" in result.stderr
+    print("✓ CLI empty question exits 1")
 
-    parser = argparse.ArgumentParser(prog="telco_rag")
-    parser.add_argument("question", type=str, help="Non-empty question")
-    parser.add_argument("--top-k", type=int, default=None)
-    parser.add_argument("--config", type=str, default=".env")
 
-    args = parser.parse_args([""])
+def test_cli_abstention_format():
+    """No context -> abstention text and exit 0, no generation."""
+    mock_pipeline = MagicMock()
+    mock_pipeline.retrieve.return_value = []
+    mock_pipeline.run.return_value = _pipeline_results(
+        answer="I don't have enough information in the knowledge base to answer this question.",
+        retrieved_documents=[],
+        retrieval_scores=[],
+        used_context=False,
+    )
 
-    question = args.question.strip()
-    if not question:
-        print("✓ CLI empty question returns error")
-    else:
-        print("✗ CLI should have caught empty question")
+    with patch("cli.setup_pipeline", MagicMock(return_value=mock_pipeline)):
+        result = runner.invoke(app, ["query", "what is the meaning of tea?"])
+
+    assert result.exit_code == 0
+    assert "I don't have enough information" in result.output
+    mock_pipeline.run.assert_called_once()
+    print("✓ CLI abstention format")
 
 
 def test_cli_retrieved_doc_format():
-    """Test that retrieved documents are formatted as 'name  (score: 0.00)'."""
-    # Verify the format from cli.py
+    """Retrieved documents are formatted 'name  (score: 0.00)'."""
     doc_name = "5g_packet_loss.md"
     score = 0.81
     formatted = f"{doc_name}  (score: {score:.2f})"
@@ -62,17 +82,9 @@ def test_cli_retrieved_doc_format():
     print("✓ CLI retrieved document format")
 
 
-def test_cli_abstention_format():
-    """Test abstention format: Retrieved Docs shows (none), Answer has insufficient info sentence."""
-    # Verify the abstention text from contracts
-    abstention = "I don't have enough information in the knowledge base to answer this question."
-    assert "enough information" in abstention
-    print("✓ CLI abstention format")
-
-
 if __name__ == "__main__":
     test_cli_protocol_four_blocks()
-    test_cli_empty_question()
-    test_cli_retrieved_doc_format()
+    test_cli_empty_question_returns_exit_1()
     test_cli_abstention_format()
+    test_cli_retrieved_doc_format()
     print("✓ All CLI output tests passed")

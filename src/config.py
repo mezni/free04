@@ -1,90 +1,215 @@
-import os
-from typing import Optional
+"""Externalized configuration (constitution X, FR-011).
 
-class Settings:
-    """Configuration loaded from environment variables."""
+Loads config/settings.yaml as the base, with environment variables taking
+precedence (contracts/config-contract.md). Level 0 env var names are
+preserved so existing tests and workflows keep working unchanged.
 
-    def __init__(self):
-        # Corpus directory
-        self.document_dir = os.getenv("DOCUMENT_DIR", "data/documents")
+Source priority (implemented via settings_customise_sources):
+    init args  >  environment  >  .env dotenv  >  config/settings.yaml  >  defaults
+"""
 
-        # Chunking parameters
-        chunk_size_str = os.getenv("CHUNK_SIZE", "500")
-        try:
-            self.chunk_size = int(chunk_size_str)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid CHUNK_SIZE: {chunk_size_str}")
+from pathlib import Path
+from typing import Any
 
-        overlap_str = os.getenv("CHUNK_OVERLAP", "50")
-        try:
-            self.chunk_overlap = int(overlap_str)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid CHUNK_OVERLAP: {overlap_str}")
+import yaml
+from pydantic import field_validator, model_validator
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
-        # Retrieval parameters
-        top_k_str = os.getenv("TOP_K", "4")
-        try:
-            self.top_k = int(top_k_str)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid TOP_K: {top_k_str}")
 
-        # Embedding
-        self.embedding_provider = os.getenv("EMBEDDING_PROVIDER", "local-sentence-transformers")
-        self.embedding_model = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+def load_yaml_dict(path: str | Path | None = None) -> dict[str, Any]:
+    """Load the nested YAML settings mapping (empty dict if file absent)."""
+    yaml_path = Path(path or "config/settings.yaml")
+    if not yaml_path.exists():
+        return {}
+    with yaml_path.open(encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Settings file must contain a YAML mapping: {yaml_path}")
+    return data
 
-        # LLM
-        self.llm_base_url = os.getenv("LLM_BASE_URL")
-        self.llm_api_key = os.getenv("LLM_API_KEY", "")
-        self.llm_model = os.getenv("LLM_MODEL")
-        self.llm_max_tokens_str = os.getenv("LLM_MAX_TOKENS", "512")
-        try:
-            self.llm_max_tokens = int(self.llm_max_tokens_str)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid LLM_MAX_TOKENS: {self.llm_max_tokens_str}")
-        self.llm_temperature_str = os.getenv("LLM_TEMPERATURE", "0.0")
-        try:
-            self.llm_temperature = float(self.llm_temperature_str)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid LLM_TEMPERATURE: {self.llm_temperature_str}")
 
-        # Validate required variables
-        self._validate()
+def _yaml_defaults() -> dict[str, Any]:
+    """Flatten config/settings.yaml into pydantic field values."""
+    raw = load_yaml_dict()
+    mapping: dict[str, Any] = {}
 
-    def _validate(self):
-        """Validate required settings and fail fast with variable name."""
-        missing = []
-        if not self.llm_base_url:
-            missing.append("LLM_BASE_URL")
-        if not self.llm_model:
-            missing.append("LLM_MODEL")
+    sec = raw.get("corpus") or {}
+    mapping.setdefault("document_dir", sec.get("document_dir", "data/documents"))
 
-        if missing:
-            raise ValueError(f"Missing required environment variable(s): {', '.join(missing)}")
+    sec = raw.get("chunking") or {}
+    mapping.setdefault("chunk_size", sec.get("chunk_size", 500))
+    mapping.setdefault("chunk_overlap", sec.get("chunk_overlap", 50))
 
-        # Validation rules
-        if self.chunk_size <= 0:
-            raise ValueError(f"CHUNK_SIZE must be > 0, got {self.chunk_size}")
-        if self.chunk_overlap < 0:
-            raise ValueError(f"CHUNK_OVERLAP must be >= 0, got {self.chunk_overlap}")
+    sec = raw.get("retrieval") or {}
+    mapping.setdefault("top_k", sec.get("top_k", 4))
+    mapping.setdefault("similarity_threshold", sec.get("similarity_threshold", 0.0))
+    mapping.setdefault("vector_db_path", sec.get("vector_db_path", "data/chroma"))
+    mapping.setdefault("collection", sec.get("collection", "telco_documents"))
+
+    sec = raw.get("embedding") or {}
+    mapping.setdefault(
+        "embedding_provider", sec.get("provider", "local-sentence-transformers")
+    )
+    mapping.setdefault("embedding_model", sec.get("model", "BAAI/bge-small-en-v1.5"))
+
+    sec = raw.get("evaluation") or {}
+    mapping.setdefault(
+        "eval_dataset_path",
+        sec.get("dataset_path", "data/evaluation/retrieval_questions.jsonl"),
+    )
+    mapping.setdefault("eval_k", sec.get("default_k", 5))
+
+    sec = raw.get("llm") or {}
+    mapping.setdefault("llm_base_url", sec.get("base_url", "https://openrouter.ai/api/v1"))
+    mapping.setdefault("llm_api_key", sec.get("api_key", ""))
+    mapping.setdefault("llm_model", sec.get("model", ""))
+    mapping.setdefault("llm_max_tokens", sec.get("max_tokens", 512))
+    mapping.setdefault("llm_temperature", sec.get("temperature", 0.0))
+
+    # Empty YAML values must not clobber field defaults for optional fields.
+    for key in ("llm_base_url", "llm_model", "llm_api_key"):
+        if not mapping.get(key):
+            mapping.pop(key, None)
+
+    return mapping
+
+
+class YamlConfigSettingsSource(PydanticBaseSettingsSource):
+    """Settings source backed by config/settings.yaml (ranked below env)."""
+
+    def __init__(self, settings_cls: type[BaseSettings]):
+        super().__init__(settings_cls)
+        self._data = _yaml_defaults()
+
+    def get_field_value(self, *args: Any, **kwargs: Any):
+        # Not used: __call__ returns the whole mapping directly.
+        raise NotImplementedError
+
+    def __call__(self) -> dict[str, Any]:
+        return self._data
+
+
+class Settings(BaseSettings):
+    """Telco RAG configuration (YAML base, env overrides)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    document_dir: str = "data/documents"
+
+    chunk_size: int = 500
+    chunk_overlap: int = 50
+
+    top_k: int = 4
+    similarity_threshold: float = 0.0
+    vector_db_path: str = "data/chroma"
+    collection: str = "telco_documents"
+
+    embedding_provider: str = "local-sentence-transformers"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+
+    eval_dataset_path: str = "data/evaluation/retrieval_questions.jsonl"
+    eval_k: int = 5
+
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_max_tokens: int = 512
+    llm_temperature: float = 0.0
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            YamlConfigSettingsSource(settings_cls),
+            file_secret_settings,
+        )
+
+    @field_validator("chunk_size")
+    @classmethod
+    def _chunk_size(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError(f"CHUNK_SIZE must be > 0, got {v}")
+        return v
+
+    @field_validator("chunk_overlap")
+    @classmethod
+    def _chunk_overlap(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError(f"CHUNK_OVERLAP must be >= 0, got {v}")
+        return v
+
+    @field_validator("top_k")
+    @classmethod
+    def _top_k(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"TOP_K must be >= 1, got {v}")
+        return v
+
+    @field_validator("similarity_threshold")
+    @classmethod
+    def _threshold(cls, v: float) -> float:
+        if not -1.0 <= v <= 1.0:
+            raise ValueError(f"SIMILARITY_THRESHOLD must be in [-1, 1], got {v}")
+        return v
+
+    @field_validator("llm_temperature")
+    @classmethod
+    def _temperature(cls, v: float) -> float:
+        if not 0.0 <= v <= 2.0:
+            raise ValueError(f"LLM_TEMPERATURE must be in [0., 2.], got {v}")
+        return v
+
+    @field_validator("llm_max_tokens")
+    @classmethod
+    def _max_tokens(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"LLM_MAX_TOKENS must be >= 1, got {v}")
+        return v
+
+    @field_validator("llm_base_url")
+    @classmethod
+    def _base_url(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Missing required setting: LLM_BASE_URL")
+        return v
+
+    @field_validator("llm_model")
+    @classmethod
+    def _model(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Missing required setting: LLM_MODEL")
+        return v
+
+    @model_validator(mode="after")
+    def _overlap_lt_size(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
-            raise ValueError(f"CHUNK_OVERLAP must be < CHUNK_SIZE ({self.chunk_size}), got {self.chunk_overlap}")
-        if self.top_k < 1:
-            raise ValueError(f"TOP_K must be >= 1, got {self.top_k}")
-        if not (0.0 <= self.llm_temperature <= 2.0):
-            raise ValueError(f"LLM_TEMPERATURE must be in [0., 2.], got {self.llm_temperature}")
-        if self.llm_max_tokens < 1:
-            raise ValueError(f"LLM_MAX_TOKENS must be >= 1, got {self.llm_max_tokens}")
-
-    @property
-    def required_vars(self):
-        """Return list of required variable names that are missing."""
-        missing = []
-        if not self.llm_base_url:
-            missing.append("LLM_BASE_URL")
-        if not self.llm_model:
-            missing.append("LLM_MODEL")
-        return missing
+            raise ValueError(
+                f"CHUNK_OVERLAP must be < CHUNK_SIZE ({self.chunk_size}), got {self.chunk_overlap}"
+            )
+        return self
 
 
-# Global instance for easy import
-settings = Settings()
+def build_settings() -> Settings:
+    """Construct Settings with the standard source hierarchy (env > YAML)."""
+    return Settings()
+
+
+# Global instance for easy import (Level 0 call sites use `settings.*`).
+settings = build_settings()

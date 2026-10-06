@@ -1,0 +1,27 @@
+{"id": "eval-001", "question": "What are the symptoms of high latency on a 5G connection?", "relevant_documents": ["5g_latency"], "category": "5g"}
+{"id": "eval-002", "question": "Which troubleshooting steps address intermittent packet loss in 5G networks?", "relevant_documents": ["5g_packet_loss"], "category": "5g"}
+{"id": "eval-003", "question": "How do I fix slow web page loading and frequent disconnections on broadband?", "relevant_documents": ["broadband_connectivity"], "category": "broadband"}
+{"id": "eval-004", "question": "What penalty clauses exist when enterprise SLA service levels are not met?", "relevant_documents": ["enterprise_sla"], "category": "enterprise"}
+{"id": "eval-005", "question": "What steps troubleshoot limited or no LTE service?", "relevant_documents": ["lte_troubleshooting"], "category": "lte"}
+{"id": "eval-006", "question": "When should an issue be escalated from L1 support to a higher level?", "relevant_documents": ["network_escalation"], "category": "operations"}
+{"id": "eval-007", "question": "What is the procedure when a NOC monitoring alert detects network degradation?", "relevant_documents": ["noc_incident_procedure"], "category": "operations"}
+{"id": "eval-008", "question": "How do I activate a new SIM card in a device?", "relevant_documents": ["sim_activation"], "category": "activation"}
+{"id": "eval-009", "question": "What causes delayed response times for data requests in 5G?", "relevant_documents": ["5g_latency"], "category": "5g"}
+{"id": "eval-010", "question": "How can I reduce connection drops during 5G data sessions?", "relevant_documents": ["5g_packet_loss"], "category": "5g"}
+{"id": "eval-011", "question": "What should I check when broadband service keeps disconnecting?", "relevant_documents": ["broadband_connectivity"], "category": "broadband"}
+{"id": "eval-012", "question": "How do I verify enterprise service performance against SLA thresholds?", "relevant_documents": ["enterprise_sla"], "category": "enterprise"}
+{"id": "eval-013", "question": "Which steps raise data speeds on a slow LTE connection?", "relevant_documents": ["lte_troubleshooting"], "category": "lte"}
+{"id": "eval-014", "question": "Which issues affect multiple users and need L2 escalation?", "relevant_documents": ["network_escalation"], "category": "operations"}
+{"id": "eval-015", "question": "What does a NOC engineer do when performance metrics are outside normal ranges?", "relevant_documents": ["noc_incident_procedure"], "category": "operations"}
+{"id": "eval-016", "question": "What steps replace a damaged SIM card?", "relevant_documents": ["sim_activation"], "category": "activation"}
+{"id": "eval-017", "question": "How do I measure packet delay variation in a 5G network?", "relevant_documents": ["5g_latency"], "category": "5g"}
+{"id": "eval-018", "question": "What are common causes of intermittent 5G packet loss?", "relevant_documents": ["5g_packet_loss"], "category": "5g"}
+{"id": "eval-019", "question": "Troubleshooting steps for frequent broadband disconnections.", "relevant_documents": ["broadband_connectivity"], "category": "broadband"}
+{"id": "eval-020", "question": "Where are SLA support response times documented?", "relevant_documents": ["enterprise_sla"], "category": "enterprise"}
+{"id": "eval-021", "question": "How do I restore service on an LTE network with frequent drops?", "relevant_documents": ["lte_troubleshooting"], "category": "lte"}
+{"id": "eval-022", "question": "When can a network problem be considered critical and escalated?", "relevant_documents": ["network_escalation"], "category": "operations"}
+{"id": "eval-023", "question": "How is a NOC incident logged after an anomaly is detected?", "relevant_documents": ["noc_incident_procedure"], "category": "operations"}
+{"id": "eval-024", "question": "How do I isolate a faulty device during SIM activation?", "relevant_documents": ["sim_activation"], "category": "activation"}
+{"id": "eval-025", "question": "What is the charge for a mid-band spectrum auction in 2026?", "relevant_documents": [], "category": "unanswerable"}
+{"id": "eval-026", "question": "Who won the last Formula One race at Monza?", "relevant_documents": [], "category": "unanswerable"}
+{"id": "eval-027", "question": "What is the recommended CPU for a weather forecasting supercomputer?", "relevant_documents": [], "category": "unanswerable"}

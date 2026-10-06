@@ -1,14 +1,12 @@
-import math
-from typing import List
 
-from domain import Chunk
+from domain import Chunk, Document
 
 
 def chunk_document(
-    document: "Document",
+    document: Document,
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
-) -> List[Chunk]:
+) -> list[Chunk]:
     """Fixed-size character chunking with CHUNK_SIZE/CHUNK_OVERLAP, produce
     Chunk objects carrying chunk_id, content, and inherited metadata
     (document_id, document_name, source).
@@ -40,11 +38,11 @@ def chunk_document(
                 document_id=doc_id,
                 document_name=doc_name,
                 source=source,
+                chunk_index=0,
             )
         ]
 
-    chunk_size_eff = cs - co  # effective step size
-    chunks: List[Chunk] = []
+    chunks: list[Chunk] = []
     start = 0
     chunk_index = 0
 
@@ -62,6 +60,7 @@ def chunk_document(
                 document_id=doc_id,
                 document_name=doc_name,
                 source=source,
+                chunk_index=chunk_index,
             )
         )
 

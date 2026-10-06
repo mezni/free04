@@ -1,4 +1,7 @@
-"""Deterministic tests for vector store - must pass before implementation."""
+"""ChromaDB-backed VectorStore tests (FR-002/015/016, US1, constitution XI).
+
+Uses a tmp_path Chroma persistent client so tests do not touch real data.
+"""
 
 import sys
 from pathlib import Path
@@ -6,136 +9,126 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import numpy as np
+import pytest
+
 from domain import Chunk
 from retrieval.vector_store import VectorStore
 
+DIM = 4
 
-def test_vector_store_add_and_search():
-    """Test basic add and search operations."""
-    store = VectorStore(dimension=384)
-
-    chunk1 = Chunk(
-        chunk_id="doc1#0001",
-        content="5G packet loss troubleshooting basics",
-        document_id="doc1",
-        document_name="5g_packet_loss.md",
-        source="data/documents/5g_packet_loss.md",
-    )
-    chunk2 = Chunk(
-        chunk_id="doc2#0001",
-        content="SIM activation procedure",
-        document_id="doc2",
-        document_name="sim_activation.md",
-        source="data/documents/sim_activation.md",
-    )
-
-    store.add([chunk1, chunk2])
-
-    # Search with a query vector similar to chunk1's content
-    query = np.ones(384, dtype=np.float32)
-    results = store.search(query, top_k=2)
-
-    assert len(results) == 2, f"Expected 2 results, got {len(results)}"
-    assert results[0].chunk.document_name == "5g_packet_loss.md"
-    assert results[1].chunk.document_name == "sim_activation.md"
-    print("✓ Vector store add and search")
+CHUNK_META = [
+    ("doc1", "5g_packet_loss.md", "data/documents/5g_packet_loss.md"),
+    ("doc2", "sim_activation.md", "data/documents/sim_activation.md"),
+]
 
 
-def test_vector_store_top_k_limit():
-    """Test that top_k limits the number of results."""
-    store = VectorStore(dimension=384)
-
-    for i in range(5):
-        chunk = Chunk(
-            chunk_id=f"doc#{i:04d}",
-            content=f"Content {i}",
-            document_id=f"doc{i}",
-            document_name=f"doc{i}.md",
-            source=f"data/documents/doc{i}.md",
-        )
-        store.add([chunk])
-
-    query = np.ones(384, dtype=np.float32)
-    results = store.search(query, top_k=3)
-
-    assert len(results) == 3, f"Expected 3 results, got {len(results)}"
-    print("✓ Vector store top-k limit")
-
-
-def test_vector_store_empty():
-    """Test searching in empty store."""
-    store = VectorStore(dimension=384)
-    results = store.search(np.ones(384, dtype=np.float32), top_k=4)
-    assert len(results) == 0
-    print("✓ Vector store empty search")
-
-
-def test_vector_store_descending_order():
-    """Test that results are ordered by descending score."""
-    store = VectorStore(dimension=384)
-
-    # Add chunks with distinct content so hashes produce different vectors
-    chunk_long = Chunk(
-        chunk_id="doclong#0001",
-        content="a" * 1000,
-        document_id="doclong",
-        document_name="long.md",
-        source="data/documents/long.md",
-    )
-    chunk_short = Chunk(
-        chunk_id="docshort#0001",
-        content="short",
-        document_id="docshort",
-        document_name="short.md",
-        source="data/documents/short.md",
+def _chunk(i: int) -> Chunk:
+    doc_id, name, source = CHUNK_META[i % len(CHUNK_META)]
+    return Chunk(
+        chunk_id=f"{doc_id}#000{i + 1}",
+        content=f"content {i}",
+        document_id=doc_id,
+        document_name=name,
+        source=source,
+        chunk_index=i + 1,
     )
 
-    store.add([chunk_long, chunk_short])
 
-    query = np.ones(384, dtype=np.float32)
-    results = store.search(query, top_k=2)
-
-    assert results[0].score >= results[1].score, "Results should be descending by score"
-    print("✓ Vector store descending order")
+def _vectors(chunks):
+    # Orthogonal basis vectors so cosine similarities are distinct.
+    return [np.eye(DIM, dtype=np.float32)[i % DIM] for i, _ in enumerate(chunks)]
 
 
-def test_vector_store_dimension_required():
-    """Test that dimension must be > 0."""
-    try:
-        store = VectorStore(dimension=0)
-        assert False, "Should have raised ValueError"
-    except ValueError:
-        pass
-    print("✓ Vector store dimension validation")
+def _ortho_query(dim_index: int) -> np.ndarray:
+    return np.eye(DIM, dtype=np.float32)[dim_index]
 
 
-def test_vector_store_single_chunk():
-    """Test storing and searching with a single chunk."""
-    store = VectorStore(dimension=384)
-
-    chunk = Chunk(
-        chunk_id="single#0001",
-        content="only chunk",
-        document_id="single",
-        document_name="single.md",
-        source="data/documents/single.md",
+def _store(tmp_path):
+    return VectorStore(
+        persist_directory=str(tmp_path / "chroma"),
+        collection_name="test_collection",
+        dimension=DIM,
     )
 
-    store.add([chunk])
 
-    query = np.ones(384, dtype=np.float32)
-    results = store.search(query, top_k=1)
+def test_add_and_count(tmp_path):
+    store = _store(tmp_path)
+    assert store.count() == 0
+    store.add([_chunk(0), _chunk(1)], _vectors([_chunk(0), _chunk(1)]))
+    assert store.count() == 2
 
+
+def test_add_then_reopen_persists(tmp_path):
+    path = tmp_path / "chroma"
+    store = VectorStore(persist_directory=str(path), collection_name="test_c", dimension=DIM)
+    store.add([_chunk(0)], _vectors([_chunk(0)]))
+
+    reopened = VectorStore(persist_directory=str(path), collection_name="test_c", dimension=DIM)
+    assert reopened.count() == 1  # persistence across restarts (FR-002)
+
+
+def test_reset_recreates_collection(tmp_path):
+    store = _store(tmp_path)
+    store.add([_chunk(0)], _vectors([_chunk(0)]))
+    assert store.count() == 1
+    store.reset()
+    assert store.count() == 0
+    store.add([_chunk(1)], _vectors([_chunk(1)]))
+    assert store.count() == 1  # no stale vectors (FR-016)
+
+
+def test_query_returns_ranked_results_with_metadata(tmp_path):
+    store = _store(tmp_path)
+    chunks = [_chunk(0), _chunk(1)]
+    store.add(chunks, _vectors(chunks))
+    results = store.query(np.eye(DIM, dtype=np.float32)[1], top_k=2)
+    assert len(results) == 2
+    assert all(r.score >= 0.0 for r in results)
+    # chunk1 embeds e1=[0,1,0,0]; query e1 -> score 1.0 (top), chunk0 -> 0.0
+    assert results[0].chunk.document_name == "sim_activation.md"
+    assert results[0].chunk.document_id == "doc2"
+    assert results[1].score < results[0].score  # distance converted to score (higher=better)
+
+
+def test_query_clamps_top_k_to_collection_size(tmp_path):
+    store = _store(tmp_path)
+    store.add([_chunk(0)], _vectors([_chunk(0)]))
+    results = store.query(np.full(DIM, 1.0, dtype=np.float32), top_k=10)
+    assert len(results) == 1  # clamps to collection size, no Chroma error
+
+
+def test_query_empty_store_returns_empty(tmp_path):
+    store = _store(tmp_path)
+    assert store.query(np.full(DIM, 1.0, dtype=np.float32), top_k=4) == []
+
+
+def test_query_metadata_filter(tmp_path):
+    store = _store(tmp_path)
+    chunks = [_chunk(0), _chunk(1)]
+    store.add(chunks, _vectors(chunks))
+    results = store.query(
+        np.full(DIM, 2.0, dtype=np.float32),
+        top_k=2,
+        metadata_filter={"document_id": "doc1"},
+    )
     assert len(results) == 1
-    assert results[0].chunk.chunk_id == "single#0001"
-    print("✓ Vector store single chunk")
+    assert results[0].chunk.document_id == "doc1"
+
+
+def test_dimension_must_be_positive(tmp_path):
+    with pytest.raises(ValueError):
+        VectorStore(persist_directory=str(tmp_path), collection_name="test_c", dimension=0)
+    with pytest.raises(ValueError):
+        VectorStore(persist_directory=str(tmp_path), collection_name="test_c", dimension=-3)
 
 
 if __name__ == "__main__":
-    test_vector_store_add_and_search()
-    test_vector_store_top_k_limit()
-    test_vector_store_empty()
-    test_vector_store_descending_order()
-    test_vector_store_dimension_required()
-    test_vector_store_single_chunk()
-    print("✓ All vector store tests passed")
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        test_add_and_count(Path(td))
+        test_query_returns_ranked_results_with_metadata(Path(td))
+        test_query_clamps_top_k_to_collection_size(Path(td))
+        test_query_empty_store_returns_empty(Path(td))
+        test_query_metadata_filter(Path(td))
+    print("✓ Vector store (ChromaDB) tests passed")
