@@ -1,162 +1,122 @@
-"""Deterministic tests for retriever - must pass before implementation."""
+"""Retriever tests using RetrievalQuery (FR-004/006/008, US1, constitution XI)."""
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+import numpy as np
+
+from domain import Chunk, RetrievalQuery
+from retrieval.retriever import Retriever
+from retrieval.vector_store import VectorStore
+
+DIM = 4
 
 
-def test_retriever_basic():
-    """Test basic retrieval operation."""
-    from telco_rag.domain import Chunk, RetrievalResult
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+class _FakeEmbedder:
+    """Deterministic embedder: embed returns its argument positions as vector."""
 
-    store = VectorStore(dimension=384)
-    chunk = Chunk(
-        chunk_id="test#0001",
-        content="5G packet loss troubleshooting/5G network issues",
-        document_id="test",
-        document_name="5g_packet_loss.md",
-        source="data/documents/5g_packet_loss.md",
+    def embed_query(self, question: str) -> np.ndarray:
+        # Simple baggy feature vector so retrieval is deterministic.
+        vec = np.zeros(DIM, dtype=np.float32)
+        for i, ch in enumerate(question):
+            vec[i % DIM] += ord(ch)
+        return vec
+
+    def embed(self, question: str) -> np.ndarray:
+        return self.embed_query(question)
+
+
+def _chunk(doc_id: str, content: str) -> Chunk:
+    return Chunk(
+        chunk_id=f"{doc_id}#0001",
+        content=content,
+        document_id=doc_id,
+        document_name=f"{doc_id}.md",
+        source=f"data/documents/{doc_id}.md",
+        chunk_index=1,
     )
-    store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=3)
-
-    results = retriever.retrieve("How do I troubleshoot 5G packet loss?")
-
-    assert len(results) > 0, "Expected at least one result"
-    assert results[0].chunk.document_name == "5g_packet_loss.md"
-    assert results[0].rank == 1
-    print("✓ Retriever basic")
 
 
-def test_retriever_top_k():
-    """Test top-k limitation."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
-
-    store = VectorStore(dimension=384)
-
-    for i in range(5):
-        chunk = Chunk(
-            chunk_id=f"doc{i}#0001",
-            content=f"Content about topic {i}",
-            document_id=f"doc{i}",
-            document_name=f"doc{i}.md",
-            source=f"data/documents/doc{i}.md",
-        )
-        store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=3)
-
-    results = retriever.retrieve("some question")
-
-    assert len(results) <= 3, f"Expected at most 3 results, got {len(results)}"
-    print("✓ Retriever top-k")
-
-
-def test_retriever_result_types():
-    """Test that results are RetrievalResult objects."""
-    from telco_rag.domain import Chunk, RetrievalResult
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
-
-    store = VectorStore(dimension=384)
-    chunk = Chunk(
-        chunk_id="test#0001",
-        content="test content",
-        document_id="test",
-        document_name="test.md",
-        source="data/documents/test.md",
+def _setup(tmp_path, chunks, dim=DIM):
+    store = VectorStore(
+        persist_directory=str(tmp_path / "chroma"), collection_name="test_c", dimension=dim
     )
-    store.add([chunk])
+    store.add(
+        chunks,
+        [np.eye(dim, dtype=np.float32)[i % dim] for i in range(len(chunks))],
+    )
+    return Retriever(store, _FakeEmbedder())  # top_k/threshold come from query
 
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=1)
 
-    results = retriever.retrieve("question")
+class _FakeEmbedder2:
+    """Embeds query token to a basis vector of the same dimension."""
 
+    def embed_query(self, question: str) -> np.ndarray:
+        return np.eye(DIM, dtype=np.float32)[len(question) % DIM]
+
+
+def _setup_ortho(tmp_path):
+    store = VectorStore(
+        persist_directory=str(tmp_path / "chroma"), collection_name="test_c", dimension=DIM
+    )
+    store.add(
+        [_chunk("a", "a"), _chunk("b", "b")],
+        [np.eye(DIM, dtype=np.float32)[0], np.eye(DIM, dtype=np.float32)[1]],
+    )
+    return Retriever(store, _FakeEmbedder2())
+
+
+def test_retrieve_returns_descending_scores(tmp_path):
+    r = _setup(tmp_path, [_chunk("a", "a"), _chunk("b", "b")])
+    results = r.retrieve(RetrievalQuery(question="aaaa", top_k=2))
+    assert len(results) == 2
+    assert [res.score for res in results] == sorted(
+        (res.score for res in results), reverse=True
+    )
+    assert [res.rank for res in results] == [1, 2]
+
+
+def test_top_k_limits_results(tmp_path):
+    chunks = [_chunk(f"d{i}", f"content {i}") for i in range(5)]
+    r = _setup(tmp_path, chunks)
+    results = r.retrieve(RetrievalQuery(question="zzz", top_k=3))
+    assert len(results) == 3
+
+
+def test_similarity_threshold_filters_low_scores(tmp_path):
+    r = _setup_ortho(tmp_path)
+    # query "aaaa" embeds to e0: chunk a score = 1.0, chunk b score = 0.0.
+    # threshold 0.5 should drop the low-score (chunk b) result entirely.
+    results = r.retrieve(RetrievalQuery(question="aaaa", top_k=2, similarity_threshold=0.5))
     assert len(results) == 1
-    result = results[0]
-    assert hasattr(result, "chunk")
-    assert hasattr(result, "score")
-    assert hasattr(result, "rank")
-    assert isinstance(result.score, float)
-    assert result.rank == 1
-    print("✓ Retriever result types")
+    assert results[0].chunk.document_id == "a"
+    assert results[0].score >= 0.5
 
 
-def test_retriever_descending_scores():
-    """Test that results are sorted by descending score."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
-
-    store = VectorStore(dimension=384)
-
-    for i in range(3):
-        chunk = Chunk(
-            chunk_id=f"doc{i}#0001",
-            content=f" topic {i} related content here",
-            document_id=f"doc{i}",
-            document_name=f"doc{i}.md",
-            source=f"data/documents/doc{i}.md",
-        )
-        store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=3)
-
-    results = retriever.retrieve("question")
-
-    for i in range(len(results) - 1):
-        assert results[i].score >= results[i + 1].score, \
-            f"Scores should be descending: {results[i].score} < {results[i+1].score}"
-    print("✓ Retriever descending scores")
+def test_rank_is_1_based(tmp_path):
+    chunks = [_chunk(f"d{i}", f"content {i}") for i in range(4)]
+    r = _setup(tmp_path, chunks)
+    results = r.retrieve(RetrievalQuery(question="zzz", top_k=2))
+    assert [res.rank for res in results] == [1, 2]
 
 
-def test_retriever_rank_assignment():
-    """Test that ranks are assigned starting from 1."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
-
-    store = VectorStore(dimension=384)
-
-    for i in range(3):
-        chunk = Chunk(
-            chunk_id=f"doc{i}#0001",
-            content=f"content {i}",
-            document_id=f"doc{i}",
-            document_name=f"doc{i}.md",
-            source=f"data/documents/doc{i}.md",
-        )
-        store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=3)
-
-    results = retriever.retrieve("question")
-
-    for i, result in enumerate(results):
-        assert result.rank == i + 1, f"Expected rank {i+1}, got {result.rank}"
-    print("✓ Retriever rank assignment")
+def test_empty_store_returns_empty(tmp_path):
+    store = VectorStore(
+        persist_directory=str(tmp_path / "chroma"), collection_name="test_c", dimension=DIM
+    )
+    r = Retriever(store, _FakeEmbedder())
+    assert r.retrieve(RetrievalQuery(question="zzz", top_k=2)) == []
 
 
 if __name__ == "__main__":
-    test_retriever_basic()
-    test_retriever_top_k()
-    test_retriever_result_types()
-    test_retriever_descending_scores()
-    test_retriever_rank_assignment()
-    print("✓ All retriever tests passed")
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        test_retrieve_returns_descending_scores(Path(td))
+        test_top_k_limits_results(Path(td))
+        test_similarity_threshold_filters_low_scores(Path(td))
+        test_rank_is_1_based(Path(td))
+        test_empty_store_returns_empty(Path(td))
+    print("✓ Retriever tests passed")

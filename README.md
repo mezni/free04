@@ -2,6 +2,29 @@
 
 A structured roadmap for building an enterprise-grade Retrieval-Augmented Generation (RAG) system for telecommunications use cases.
 
+## Setup (uv only)
+
+```bash
+uv sync                    # install dependencies + `telco-rag` console script
+uv run pytest              # run the full test suite (61 tests)
+```
+
+Configuration lives in `config/settings.yaml` (corpus path, chunk size/overlap,
+retrieval top-k/similarity-threshold, embedding model, LLM endpoint) and is
+overridden by environment variables (`LLM_BASE_URL`, `LLM_MODEL`, `CHUNK_SIZE`,
+`CHUNK_OVERLAP`, `TOP_K`, `SIMILARITY_THRESHOLD`, ...). Set `LLM_API_KEY` for a
+real OpenRouter-backed model.
+
+## Usage
+
+```bash
+uv run telco-rag ingest                  # embed data/documents into ChromaDB (data/chroma)
+uv run telco-rag query "How do I fix 5G packet loss?" --debug-retrieval
+uv run telco-rag evaluate --threshold 0.65   # Recall@K / Precision@K / MRR on the eval set
+```
+
+Full runnable walkthrough with success criteria: `specs/002-level-1-rag-foundations/quickstart.md`.
+
 ## Maturity Levels
 
 | Level | Features | Problems to Solve |
@@ -31,6 +54,14 @@ A structured roadmap for building an enterprise-grade Retrieval-Augmented Genera
 | **22 — Agentic RAG** | Tools, planning, tool selection, workflow orchestration, memory, external systems, human approval | When should the system retrieve information, call another system, or ask a human? How do we control agent actions? |
 | **23 — Agent Governance** | Tool permissions, action authorization, human-in-the-loop, action budgets, guardrails, agent audit trails, policy enforcement | How do we prevent an agent from taking unauthorized or dangerous actions? |
 | **24 — Production Enterprise Platform** | HA architecture, multi-region strategy, DR, autoscaling, enterprise API gateway, centralized IAM, observability platform, governance, FinOps, platform operations | Can this become a shared, reliable enterprise RAG platform used across a real telco? |
+
+## Current Status: Level 1 — RAG Foundations (0.3.0)
+
+Real infrastructure landing: sentence-transformers `BAAI/bge-small-en-v1.5`
+embeddings in a persistent ChromaDB store, Typer CLI (`ingest`/`query`/
+`evaluate`), debug retrieval diagnostics, similarity thresholding, and
+Recall@K/Precision@K/MRR evaluation. See `CHANGELOG.md` for the 0.3.0 feature
+entry.
 
 ## Notes
 

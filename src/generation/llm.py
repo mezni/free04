@@ -1,7 +1,7 @@
-import httpx
-from typing import Optional
 
-from telco_rag.domain import Answer
+import httpx
+
+from domain import Answer
 
 
 class LLMClient:
@@ -67,14 +67,14 @@ class LLMClient:
             return Answer(text=text, used_context=used_context)
 
         except httpx.TimeoutException:
-            raise RuntimeError(f"LLM request timed out after {self.timeout}s")
+            raise RuntimeError(f"LLM request timed out after {self.timeout}s") from None
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
                 f"LLM API error {e.response.status_code}: "
                 f"{e.response.text[:200]}"
-            )
+            ) from e
         except Exception as e:
-            raise RuntimeError(f"LLM request failed: {e}")
+            raise RuntimeError(f"LLM request failed: {e}") from e
 
     def close(self):
         """Close the underlying HTTP client."""

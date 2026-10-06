@@ -1,0 +1,253 @@
+"""Telco RAG CLI (Typer; contracts/CLI.md, constitution XII).
+
+Commands:
+  ingest   — reset + rebuild the ChromaDB collection from data/documents/
+  query    — retrieve + generate a grounded answer (or diagnostics only with
+             --debug-retrieval; FR-007 US2)
+  evaluate — retrieval metrics (added in US4)
+
+Exit codes: 0 success/abstention, 1 usage/config, 2 runtime failure (FR-017).
+"""
+
+import time
+import traceback
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from config import settings
+from embeddings.embedder import Embedder
+from ingestion.chunker import chunk_document
+from ingestion.loader import discover_documents
+from rag.pipeline import RAGPipeline
+from retrieval.vector_store import VectorStore
+
+app = typer.Typer(
+    name="telco-rag",
+    help="Telco RAG: ask a question and get a grounded answer from your corpus.",
+)
+
+ABSTENTION = "I don't have enough information in the knowledge base to answer this question."
+
+
+def setup_pipeline() -> RAGPipeline:
+    """Initialize and return a RAGPipeline instance tied to the ChromaDB store."""
+    embedder = Embedder(
+        provider=settings.embedding_provider,
+        model=settings.embedding_model,
+    )
+
+    vector_store = VectorStore(
+        persist_directory=settings.vector_db_path,
+        collection_name=settings.collection,
+        dimension=embedder.dimension(),
+    )
+
+    return RAGPipeline(
+        vector_store=vector_store,
+        embedder=embedder,
+        top_k=settings.top_k,
+        similarity_threshold=settings.similarity_threshold,
+    )
+
+
+@app.command()
+def ingest() -> int:
+    """Reset the collection and ingest the document corpus (FR-016)."""
+    embedder = Embedder(
+        provider=settings.embedding_provider,
+        model=settings.embedding_model,
+    )
+
+    store = VectorStore(
+        persist_directory=settings.vector_db_path,
+        collection_name=settings.collection,
+        dimension=embedder.dimension(),
+    )
+
+    started = time.time()
+    docs = discover_documents(str(settings.document_dir))
+    print(f"Discovered {len(docs)} documents from {settings.document_dir}")
+
+    # Reset once so the collection reflects only the current configuration.
+    store.reset()
+
+    total_chunks = 0
+    for doc in docs:
+        chunks = chunk_document(
+            doc,
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+        )
+        embeddings = embedder.embed_batch([c.content for c in chunks])
+        store.add(chunks, embeddings)
+        total_chunks += len(chunks)
+
+    elapsed = time.time() - started
+    print(f"Ingested {total_chunks} chunks into collection '{settings.collection}' in {elapsed:.2f}s")
+    return 0
+
+
+@app.command()
+def query(
+    question: Annotated[str, typer.Argument(help="Non-empty question")],
+    top_k: Annotated[
+        int | None,
+        typer.Option(help="Override retrieval depth (default from config)"),
+    ] = None,
+    debug_retrieval: Annotated[
+        bool,
+        typer.Option(help="Show per-chunk retrieval diagnostics (FR-007)"),
+    ] = False,
+) -> int:
+    """Ask a question and get a grounded answer."""
+    question = question.strip()
+    if not question:
+        typer.echo("Error: Question cannot be empty", err=True)
+        raise typer.Exit(code=1)
+
+    pipeline = setup_pipeline()
+
+    # Step 1: Retrieve (independent of generation — FR-007/US2).
+    try:
+        results = pipeline.retrieve(question, top_k=top_k)
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    print("Question:")
+    print(question)
+    print()
+
+    # Diagnostic / retrieved-documents block.
+    if debug_retrieval:
+        if results:
+            print("Retrieved Documents:")
+            for r in results:
+                text = r.chunk.content[:120].replace("\n", " ").strip()
+                print(
+                    f"{r.chunk.document_id} :: {r.chunk.chunk_id} :: "
+                    f"{r.chunk.document_name} (score: {r.score:.2f}) :: {text}"
+                )
+        else:
+            print(
+                f"Retrieved Documents: (none — nothing above "
+                f"similarity_threshold={settings.similarity_threshold})"
+            )
+        print()
+
+        # Diagnostics-only mode: retrieval is inspectable without the LLM (US2).
+        print("Answer:")
+        print("(diagnostics only — LLM not invoked)")
+        return 0
+
+    # Normal query: print retrieved docs after generation, or via fallback
+    # retrieve on LLM failure (FR-017) so results are shown before the error.
+    try:
+        result = pipeline.run(question, top_k=top_k)
+    except RuntimeError as e:
+        fallback = pipeline.retrieve(question, top_k=top_k)
+        if fallback:
+            print("Retrieved Documents:")
+            for i, r in enumerate(fallback, start=1):
+                print(f"{i}. {r.chunk.document_name}  (score: {r.score:.2f})")
+        else:
+            print("Retrieved Documents:")
+            print("(none)")
+        print()
+        typer.echo(f"Error: generation backend unavailable: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    if result["retrieved_documents"]:
+        print("Retrieved Documents:")
+        for i, (doc, score) in enumerate(
+            zip(result["retrieved_documents"], result["retrieval_scores"], strict=True), start=1
+        ):
+            print(f"{i}. {doc}  (score: {score:.2f})")
+    else:
+        print("Retrieved Documents:")
+        print("(none)")
+    print()
+
+    print("Answer:")
+    print(result["answer"])
+    return 0
+
+
+@app.command()
+def evaluate(
+    k: Annotated[
+        int | None,
+        typer.Option(help="Evaluation depth (Recall@K/Precision@K)"),
+    ] = None,
+    dataset: Annotated[
+        str | None,
+        typer.Option(help="Path to the evaluation questions dataset"),
+    ] = None,
+    threshold: Annotated[
+        float | None,
+        typer.Option(help="Overrides retrieval similarity_threshold (FR-006)"),
+    ] = None,
+) -> int:
+    """Run retrieval evaluation (US4, no LLM; contracts/evaluation-contract.md)."""
+    from evaluation.dataset import load_questions, missing_docs
+    from evaluation.metrics import evaluate_retrieval
+
+    path = Path(dataset) if dataset else Path(settings.eval_dataset_path)
+    k_val = k or settings.eval_k
+    threshold_val = threshold if threshold is not None else settings.similarity_threshold
+
+    try:
+        questions = load_questions(path)
+    except FileNotFoundError:
+        typer.echo(f"Error: evaluation dataset not found: {path}", err=True)
+        raise typer.Exit(code=1) from None
+
+    embedder = Embedder(
+        provider=settings.embedding_provider,
+        model=settings.embedding_model,
+    )
+    store = VectorStore(
+        persist_directory=settings.vector_db_path,
+        collection_name=settings.collection,
+        dimension=embedder.dimension(),
+    )
+    from retrieval.retriever import Retriever
+
+    retriever = Retriever(store, embedder)
+
+    report = evaluate_retrieval(
+        questions, retriever, k_val, similarity_threshold=threshold_val
+    )
+
+    answerable = [q for q in questions if not q.is_unanswerable]
+    unanswerable = [q for q in questions if q.is_unanswerable]
+
+    # Docs referenced by the dataset but absent from the corpus => reported
+    # as misses, never a crash (Edge Case, evaluation contract).
+    missing = missing_docs(questions)
+    if missing:
+        print(f"! corpus missing docs referenced by dataset: {', '.join(missing)}")
+    print(f"Evaluation: {len(answerable)} answerable, {len(unanswerable)} unanswerable (dataset: {path})")
+    print(f"Recall@{k_val}:   {report['recall_at_k']:.2f}")
+    print(f"Precision@{k_val}: {report['precision_at_k']:.2f}")
+    print(f"MRR:         {report['mrr']:.2f}")
+    print(
+        f"Unanswerable: {len(unanswerable)} questions · "
+        f"true-negatives {report['true_negatives']} · false-positives {report['false_positives']}"
+    )
+    print("Per-question: " + " · ".join(f"{pid} (r={pv['recall']:.2f}/p={pv['precision']:.2f}/rr={pv['rr']:.2f})"
+          for pid, pv in report["per_question"].items()))
+    return 0
+
+
+def main():
+    """Entry point for the `telco-rag` console script (exit code protocol)."""
+    try:
+        app()
+    except typer.Exit as e:
+        raise SystemExit(e.exit_code) from None
+    except Exception:
+        traceback.print_exc()
+        raise SystemExit(2) from None

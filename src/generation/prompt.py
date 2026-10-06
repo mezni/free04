@@ -1,4 +1,3 @@
-from telco_rag.domain import RetrievalResult
 
 
 PROMPT_SYSTEM_INSTRUCTION = """You are a Telco knowledge assistant. Answer the user's question using ONLY the retrieved context below.

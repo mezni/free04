@@ -1,18 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "telco-rag"
-version = "0.1.0"
+version = "0.3.0"
 requires-python = ">=3.12"
+description = "Telco Enterprise RAG — Level 1 RAG Foundations (real embeddings + ChromaDB)"
 dependencies = [
+    "pydantic>=2",
+    "pydantic-settings",
     "sentence-transformers",
+    "chromadb",
+    "openai",
     "numpy",
     "httpx",
+    "pyyaml",
+    "typer",
 ]
 
 [project.scripts]
-telco-rag = "telco_rag.cli:main"
+telco-rag = "src.cli:main"
 
-[tool.pytest]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-data]
+src = ["py.typed"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py", "test_*.py"]
-python_classes = []
-python_functions = []
+python_files = ["test_*.py"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length handled by ruff format
+]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+mypy_path = "src"
+explicit_package_bases = true
+exclude = ["src/__main__.py"]
+ignore_missing_imports = true
+warn_unused_ignores = false

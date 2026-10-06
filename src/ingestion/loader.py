@@ -1,13 +1,11 @@
-import os
 import re
 from pathlib import Path
-from typing import List
 
-from telco_rag.domain import Document
-from telco_rag.config import settings
+from config import settings
+from domain import Document
 
 
-def discover_documents(document_dir: str | None = None) -> List[Document]:
+def discover_documents(document_dir: str | None = None) -> list[Document]:
     """Discover .md files under DOCUMENT_DIR, assign document_id, preserve
     document_name and source, return Document objects.
 
@@ -29,7 +27,7 @@ def discover_documents(document_dir: str | None = None) -> List[Document]:
         msg = f"No Markdown files found in {dir_path}"
         raise FileNotFoundError(msg)
 
-    documents: List[Document] = []
+    documents: list[Document] = []
     for md_file in md_files:
         try:
             content = md_file.read_text(encoding="utf-8")

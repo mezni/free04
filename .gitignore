@@ -22,6 +22,10 @@ build/
 
 # Coverage
 .coverage
+.coverage.*
+
+# Vector store local data (Level 1 ChromaDB persistence)
+data/chroma/
 
 # Logs
 *.log

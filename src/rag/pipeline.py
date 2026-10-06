@@ -1,8 +1,9 @@
-from telco_rag.domain import Document, Chunk, RetrievalResult, Answer
-from telco_rag.retrieval.retriever import Retriever
-from telco_rag.generation.prompt import build_prompt, make_prompt_from_results
-from telco_rag.generation.llm import LLMClient
-from telco_rag.config import settings
+from config import settings
+from domain import RetrievalQuery, RetrievalResult
+from generation.llm import LLMClient
+from generation.prompt import build_prompt
+from retrieval.retriever import Retriever
+from retrieval.vector_store import VectorStore
 
 
 class RAGPipeline:
@@ -20,13 +21,15 @@ class RAGPipeline:
         retriever: Retriever | None = None,
         llm_client: LLMClient | None = None,
         top_k: int = 4,
+        similarity_threshold: float = 0.0,
     ):
         self.vector_store = vector_store
         self.embedder = embedder
         self.top_k = top_k
+        self.similarity_threshold = similarity_threshold
 
         if retriever is None:
-            self.retriever = Retriever(vector_store, embedder, top_k=top_k)
+            self.retriever = Retriever(vector_store, embedder)
         else:
             self.retriever = retriever
 
@@ -41,7 +44,17 @@ class RAGPipeline:
         else:
             self.llm_client = llm_client
 
-    def run(self, question: str) -> dict:
+    def retrieve(self, question: str, top_k: int | None = None) -> list[RetrievalResult]:
+        """Retrieve relevant chunks for a question (no LLM; FR-007/US2)."""
+        k = top_k if top_k is not None else self.top_k
+        query = RetrievalQuery(
+            question=question,
+            top_k=max(k, 1),
+            similarity_threshold=self.similarity_threshold,
+        )
+        return self.retriever.retrieve(query)
+
+    def run(self, question: str, top_k: int | None = None) -> dict:
         """Run the full RAG pipeline for a given question.
 
         Returns a dict with:
@@ -52,8 +65,8 @@ class RAGPipeline:
         - "used_context": whether retrieval produced chunks
         - "abstention": abstention text if no context
         """
-        # Step 1: Retrieve
-        results = self.retriever.retrieve(question)
+        # Step 1: Retrieve via typed query
+        results = self.retrieve(question, top_k=top_k)
 
         if not results:
             # No chunks found - abstention

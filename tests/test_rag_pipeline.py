@@ -3,25 +3,71 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import MagicMock
 
-from telco_rag.domain import Document, Chunk, RetrievalResult, Answer
-from telco_rag.retrieval.vector_store import VectorStore
-from telco_rag.embeddings.embedder import Embedder
-from telco_rag.retrieval.retriever import Retriever
-from telco_rag.generation.prompt import build_prompt, make_prompt_from_results
-from telco_rag.generation.llm import LLMClient
-from telco_rag.rag.pipeline import RAGPipeline
+import numpy as np
+
+from domain import Answer, Chunk
+from generation.llm import LLMClient
+from rag.pipeline import RAGPipeline
+from retrieval.retriever import Retriever
+from retrieval.vector_store import VectorStore
+
+DIM = 4
 
 
-def test_pipeline_abstention_no_chunks():
+class FakeEmbedder:
+    """Deterministic fake embedder for pipeline tests."""
+
+    def __init__(self, dim=DIM):
+        self.dim = dim
+
+    def embed(self, text: str) -> np.ndarray:
+        return np.zeros(self.dim, dtype=np.float32)
+
+    def embed_batch(self, texts) -> list:
+        return [np.zeros(self.dim, dtype=np.float32) for _ in texts]
+
+    def embed_query(self, question: str) -> np.ndarray:
+        return np.zeros(self.dim, dtype=np.float32)
+
+    def embed_documents(self, documents):
+        return self.embed_batch(documents)
+
+    def dimension(self) -> int:
+        return self.dim
+
+
+def _chunk(i: int = 0, doc_id: str = "test") -> Chunk:
+    return Chunk(
+        chunk_id=f"{doc_id}#000{i + 1}",
+        content=f"5G packet loss troubleshooting steps number {i}",
+        document_id=doc_id,
+        document_name="5g_packet_loss.md",
+        source="data/documents/5g_packet_loss.md",
+        chunk_index=i + 1,
+    )
+
+
+def _empty_store(tmp_path):
+    return VectorStore(
+        persist_directory=str(tmp_path / "chroma"),
+        collection_name="test_pipeline",
+        dimension=DIM,
+    )
+
+
+def test_pipeline_abstention_no_chunks(tmp_path):
     """Test pipeline abstention when no chunks found."""
-    store = VectorStore(dimension=384)
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    pipeline = RAGPipeline(vector_store=store, embedder=embedder, top_k=4)
+    store = _empty_store(tmp_path)
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=FakeEmbedder(),
+        top_k=4,
+        llm_client=MagicMock(spec=LLMClient),
+    )
 
     result = pipeline.run("What is the procedure for satellite network handover?")
 
@@ -32,21 +78,13 @@ def test_pipeline_abstention_no_chunks():
     print("✓ Pipeline abstention no chunks")
 
 
-def test_pipeline_with_mocked_llm():
+def test_pipeline_with_mocked_llm(tmp_path):
     """Test pipeline with mocked LLM client."""
-    store = VectorStore(dimension=384)
+    store = _empty_store(tmp_path)
+    chunk = _chunk()
+    store.add([chunk], [np.ones(DIM, dtype=np.float32)])
 
-    chunk = Chunk(
-        chunk_id="test#0001",
-        content="5G packet loss troubleshooting steps",
-        document_id="test",
-        document_name="5g_packet_loss.md",
-        source="data/documents/5g_packet_loss.md",
-    )
-    store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    retriever = Retriever(vector_store=store, embedder=embedder, top_k=4)
+    retriever = Retriever(vector_store=store, embedder=FakeEmbedder())
 
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.generate.return_value = Answer(
@@ -56,7 +94,7 @@ def test_pipeline_with_mocked_llm():
 
     pipeline = RAGPipeline(
         vector_store=store,
-        embedder=embedder,
+        embedder=FakeEmbedder(),
         retriever=retriever,
         llm_client=mock_llm,
         top_k=4,
@@ -70,24 +108,21 @@ def test_pipeline_with_mocked_llm():
     print("✓ Pipeline with mocked LLM")
 
 
-def test_pipeline_abstention_on_empty_answer():
+def test_pipeline_abstention_on_empty_answer(tmp_path):
     """Test pipeline uses abstention when LLM returns empty answer without context."""
-    store = VectorStore(dimension=384)
-
-    chunk = Chunk(
-        chunk_id="test#0001",
-        content="some content",
-        document_id="test",
-        document_name="test.md",
-        source="data/documents/test.md",
-    )
-    store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    pipeline = RAGPipeline(vector_store=store, embedder=embedder, top_k=4)
+    store = _empty_store(tmp_path)
+    chunk = _chunk()
+    store.add([chunk], [np.ones(DIM, dtype=np.float32)])
 
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.generate.return_value = Answer(text="", used_context=False)
+
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=FakeEmbedder(),
+        llm_client=mock_llm,
+        top_k=4,
+    )
 
     result = pipeline.run("Some question")
 
@@ -96,22 +131,20 @@ def test_pipeline_abstention_on_empty_answer():
     print("✓ Pipeline abstention on empty answer")
 
 
-def test_pipeline_top_k_limit():
+def test_pipeline_top_k_limit(tmp_path):
     """Test pipeline respects top-k limit."""
-    store = VectorStore(dimension=384)
+    store = _empty_store(tmp_path)
+    chunks = [_chunk(i=i, doc_id=f"doc{i}") for i in range(5)]
+    store.add(chunks, [np.ones(DIM, dtype=np.float32) for _ in chunks])
 
-    for i in range(5):
-        chunk = Chunk(
-            chunk_id=f"doc{i}#0001",
-            content=f"Content {i} about networking",
-            document_id=f"doc{i}",
-            document_name=f"doc{i}.md",
-            source=f"data/documents/doc{i}.md",
-        )
-        store.add([chunk])
-
-    embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    pipeline = RAGPipeline(vector_store=store, embedder=embedder, top_k=3)
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate.return_value = Answer(text="Answer", used_context=True)
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=FakeEmbedder(),
+        llm_client=mock_llm,
+        top_k=3,
+    )
 
     result = pipeline.run("network question")
 
@@ -119,9 +152,36 @@ def test_pipeline_top_k_limit():
     print("✓ Pipeline top-k limit")
 
 
+def test_pipeline_runtime_error_on_llm_failure_propagates(tmp_path):
+    """LLM failures propagate as RuntimeError for FR-017 handling."""
+    store = _empty_store(tmp_path)
+    chunk = _chunk()
+    store.add([chunk], [np.ones(DIM, dtype=np.float32)])
+
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate.side_effect = RuntimeError("LLM request timed out after 30s")
+
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=FakeEmbedder(),
+        llm_client=mock_llm,
+        top_k=4,
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="LLM request"):
+        pipeline.run("How do I troubleshoot 5G packet loss?")
+    print("✓ Pipeline propagates LLM failure")
+
+
 if __name__ == "__main__":
-    test_pipeline_abstention_no_chunks()
-    test_pipeline_with_mocked_llm()
-    test_pipeline_abstention_on_empty_answer()
-    test_pipeline_top_k_limit()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        test_pipeline_abstention_no_chunks(Path(td))
+        test_pipeline_with_mocked_llm(Path(td))
+        test_pipeline_abstention_on_empty_answer(Path(td))
+        test_pipeline_top_k_limit(Path(td))
+        test_pipeline_runtime_error_on_llm_failure_propagates(Path(td))
     print("✓ All pipeline tests passed")
