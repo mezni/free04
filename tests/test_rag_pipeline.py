@@ -3,18 +3,18 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from unittest.mock import MagicMock, patch
 import pytest
 
-from telco_rag.domain import Document, Chunk, RetrievalResult, Answer
-from telco_rag.retrieval.vector_store import VectorStore
-from telco_rag.embeddings.embedder import Embedder
-from telco_rag.retrieval.retriever import Retriever
-from telco_rag.generation.prompt import build_prompt, make_prompt_from_results
-from telco_rag.generation.llm import LLMClient
-from telco_rag.rag.pipeline import RAGPipeline
+from domain import Document, Chunk, RetrievalResult, Answer
+from retrieval.vector_store import VectorStore
+from embeddings.embedder import Embedder
+from retrieval.retriever import Retriever
+from generation.prompt import build_prompt, make_prompt_from_results
+from generation.llm import LLMClient
+from rag.pipeline import RAGPipeline
 
 
 def test_pipeline_abstention_no_chunks():
@@ -84,10 +84,15 @@ def test_pipeline_abstention_on_empty_answer():
     store.add([chunk])
 
     embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    pipeline = RAGPipeline(vector_store=store, embedder=embedder, top_k=4)
-
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.generate.return_value = Answer(text="", used_context=False)
+
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=embedder,
+        llm_client=mock_llm,
+        top_k=4,
+    )
 
     result = pipeline.run("Some question")
 
@@ -111,7 +116,14 @@ def test_pipeline_top_k_limit():
         store.add([chunk])
 
     embedder = Embedder(provider="local-sentence-transformers", model="all-MiniLM-L6-v2")
-    pipeline = RAGPipeline(vector_store=store, embedder=embedder, top_k=3)
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate.return_value = Answer(text="Answer", used_context=True)
+    pipeline = RAGPipeline(
+        vector_store=store,
+        embedder=embedder,
+        llm_client=mock_llm,
+        top_k=3,
+    )
 
     result = pipeline.run("network question")
 

@@ -3,15 +3,15 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 def test_retriever_basic():
     """Test basic retrieval operation."""
-    from telco_rag.domain import Chunk, RetrievalResult
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+    from domain import Chunk, RetrievalResult
+    from embeddings.embedder import Embedder
+    from retrieval.retriever import Retriever
+    from retrieval.vector_store import VectorStore
 
     store = VectorStore(dimension=384)
     chunk = Chunk(
@@ -36,10 +36,10 @@ def test_retriever_basic():
 
 def test_retriever_top_k():
     """Test top-k limitation."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+    from domain import Chunk
+    from embeddings.embedder import Embedder
+    from retrieval.retriever import Retriever
+    from retrieval.vector_store import VectorStore
 
     store = VectorStore(dimension=384)
 
@@ -64,10 +64,10 @@ def test_retriever_top_k():
 
 def test_retriever_result_types():
     """Test that results are RetrievalResult objects."""
-    from telco_rag.domain import Chunk, RetrievalResult
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+    from domain import Chunk, RetrievalResult
+    from embeddings.embedder import Embedder
+    from retrieval.retriever import Retriever
+    from retrieval.vector_store import VectorStore
 
     store = VectorStore(dimension=384)
     chunk = Chunk(
@@ -96,10 +96,10 @@ def test_retriever_result_types():
 
 def test_retriever_descending_scores():
     """Test that results are sorted by descending score."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+    from domain import Chunk
+    from embeddings.embedder import Embedder
+    from retrieval.retriever import Retriever
+    from retrieval.vector_store import VectorStore
 
     store = VectorStore(dimension=384)
 
@@ -126,10 +126,10 @@ def test_retriever_descending_scores():
 
 def test_retriever_rank_assignment():
     """Test that ranks are assigned starting from 1."""
-    from telco_rag.domain import Chunk
-    from telco_rag.embeddings.embedder import Embedder
-    from telco_rag.retrieval.retriever import Retriever
-    from telco_rag.retrieval.vector_store import VectorStore
+    from domain import Chunk
+    from embeddings.embedder import Embedder
+    from retrieval.retriever import Retriever
+    from retrieval.vector_store import VectorStore
 
     store = VectorStore(dimension=384)
 

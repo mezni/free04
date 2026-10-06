@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec.php#pe
 
 | Version | Feature Domain | Key Objectives |
 |---------|---------------|----------------|
-| 0.2-pre | Level 0 — Naive RAG Baseline | First working RAG pipeline with deterministic tests |
+| 0.2.0 | Level 0 — Naive RAG Baseline | First working RAG pipeline with deterministic tests |
 | 0.0.1   | Project          | Scaffold|
 | 0.1-pre | Repo       | Cleanup|
 
 
-## [0.2-pre] - 2026-10-06
+## [0.2.0] - 2026-10-06
 
 ### Added
 - **Base project scaffolding:** `src/telco_rag/` package (config, domain, CLI, embeddings, generation, ingestion, retrieval, RAG pipeline), `data/documents/` with 8 synthetic Telco markdown documents, `tests/conftest.py`, loader and chunker tests

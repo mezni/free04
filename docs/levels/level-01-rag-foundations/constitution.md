@@ -118,7 +118,16 @@ Use:
 
 - **uv**
 
-for Python dependency management and environment management.
+for all Python packaging, dependency management, and environment management.
+
+uv shall be the single tool for:
+
+- creating and managing the virtual environment
+- installing dependencies
+- locking dependencies (`uv.lock`)
+- running scripts and entry points
+
+pip, pipenv, poetry, and conda shall not be used.
 
 ### 4.3 Data Models
 

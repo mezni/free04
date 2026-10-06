@@ -1,7 +1,7 @@
 from typing import List
 
-from telco_rag.domain import RetrievalResult
-from telco_rag.embeddings.embedder import Embedder
+from domain import RetrievalResult
+from embeddings.embedder import Embedder
 
 
 class Retriever:

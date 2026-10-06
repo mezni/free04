@@ -1,8 +1,8 @@
-from telco_rag.domain import Document, Chunk, RetrievalResult, Answer
-from telco_rag.retrieval.retriever import Retriever
-from telco_rag.generation.prompt import build_prompt, make_prompt_from_results
-from telco_rag.generation.llm import LLMClient
-from telco_rag.config import settings
+from domain import Document, Chunk, RetrievalResult, Answer
+from retrieval.retriever import Retriever
+from generation.prompt import build_prompt, make_prompt_from_results
+from generation.llm import LLMClient
+from config import settings
 
 
 class RAGPipeline:

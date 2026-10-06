@@ -3,11 +3,11 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import numpy as np
-from telco_rag.domain import Chunk
-from telco_rag.retrieval.vector_store import VectorStore
+from domain import Chunk
+from retrieval.vector_store import VectorStore
 
 
 def test_vector_store_add_and_search():

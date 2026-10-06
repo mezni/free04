@@ -1,7 +1,7 @@
 import math
 from typing import List
 
-from telco_rag.domain import Chunk
+from domain import Chunk
 
 
 def chunk_document(
@@ -15,8 +15,8 @@ def chunk_document(
 
     A document smaller than one chunk produces exactly one chunk (edge case).
     """
-    cs = chunk_size or 500
-    co = chunk_overlap or 50
+    cs = chunk_size if chunk_size is not None else 500
+    co = chunk_overlap if chunk_overlap is not None else 50
 
     if cs <= 0:
         raise ValueError(f"chunk_size must be > 0, got {cs}")

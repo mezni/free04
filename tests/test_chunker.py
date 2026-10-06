@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from telco_rag.domain import Document, Chunk
-from telco_rag.ingestion.chunker import chunk_document
+from domain import Document, Chunk
+from ingestion.chunker import chunk_document
 
 
 def test_chunk_document_basic():

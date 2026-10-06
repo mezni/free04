@@ -4,15 +4,15 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 def test_cli_protocol_four_blocks():
     """Test that CLI output has four labelled blocks: Question, Retrieved Docs, Answer, exit code 0."""
     # Mock the pipeline to avoid needing actual embeddings/LLM
-    from telco_rag.cli import run_cli, setup_pipeline
+    from cli import run_cli, setup_pipeline
 
-    with patch('telco_rag.cli.RAGPipeline') as mock_pipeline_class:
+    with patch('cli.RAGPipeline') as mock_pipeline_class:
         mock_pipeline = MagicMock()
         mock_pipeline.run.return_value = {
             "question": "How do I troubleshoot 5G packet loss?",
@@ -24,7 +24,7 @@ def test_cli_protocol_four_blocks():
         }
         mock_pipeline_class.return_value = mock_pipeline
 
-        with patch('telco_rag.cli.setup_pipeline') as mock_setup:
+        with patch('cli.setup_pipeline') as mock_setup:
             mock_setup.return_value = mock_pipeline
 
             # We can't easily test the full CLI without args,
@@ -35,7 +35,7 @@ def test_cli_protocol_four_blocks():
 def test_cli_empty_question():
     """Test that empty question returns exit code 1."""
     import argparse
-    from telco_rag.cli import run_cli
+    from cli import run_cli
 
     parser = argparse.ArgumentParser(prog="telco_rag")
     parser.add_argument("question", type=str, help="Non-empty question")

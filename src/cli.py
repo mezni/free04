@@ -2,11 +2,11 @@ import sys
 import argparse
 import traceback
 
-from telco_rag.config import settings
-from telco_rag.rag.pipeline import RAGPipeline
-from telco_rag.ingestion.loader import discover_documents
-from telco_rag.embeddings.embedder import Embedder
-from telco_rag.retrieval.vector_store import VectorStore
+from config import settings
+from rag.pipeline import RAGPipeline
+from ingestion.loader import discover_documents
+from embeddings.embedder import Embedder
+from retrieval.vector_store import VectorStore
 
 
 def setup_pipeline() -> RAGPipeline:

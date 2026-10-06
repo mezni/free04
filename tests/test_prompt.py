@@ -4,9 +4,9 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from telco_rag.generation.prompt import build_prompt, make_prompt_from_results
+from generation.prompt import build_prompt, make_prompt_from_results
 
 
 def test_build_prompt_with_context():

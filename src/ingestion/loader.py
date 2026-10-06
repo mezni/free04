@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 from typing import List
 
-from telco_rag.domain import Document
-from telco_rag.config import settings
+from domain import Document
+from config import settings
 
 
 def discover_documents(document_dir: str | None = None) -> List[Document]:

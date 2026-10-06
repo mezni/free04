@@ -9,10 +9,8 @@ dependencies = [
 ]
 
 [project.scripts]
-telco-rag = "telco_rag.cli:main"
+telco-rag = "src.cli:main"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py", "test_*.py"]
-python_classes = []
-python_functions = []
+python_files = ["test_*.py"]

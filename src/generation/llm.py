@@ -1,7 +1,7 @@
 import httpx
 from typing import Optional
 
-from telco_rag.domain import Answer
+from domain import Answer
 
 
 class LLMClient:

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Tuple
 
-from telco_rag.domain import Chunk, RetrievalResult
+from domain import Chunk, RetrievalResult
 
 
 class VectorStore:
