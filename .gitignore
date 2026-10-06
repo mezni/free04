@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+.env.*
+.venv/
+
+# Project-specific
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Dotenv
+.env
+
+# Coverage
+.coverage
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
