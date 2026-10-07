@@ -1,7 +1,7 @@
 """Run all custom tests to verify implementation."""
 
-import sys
 import os
+import sys
 
 # Set required env vars FIRST
 os.environ.setdefault("LLM_BASE_URL", "http://localhost.test")
@@ -18,12 +18,13 @@ def run_vector_store_tests():
     """Run vector store tests."""
     from tests.test_vector_store import (
         test_vector_store_add_and_search,
-        test_vector_store_top_k_limit,
-        test_vector_store_empty,
         test_vector_store_descending_order,
         test_vector_store_dimension_required,
+        test_vector_store_empty,
         test_vector_store_single_chunk,
+        test_vector_store_top_k_limit,
     )
+
     print("Vector store tests:")
     test_vector_store_add_and_search()
     print("  add_search: PASS")
@@ -43,11 +44,12 @@ def run_retriever_tests():
     """Run retriever tests."""
     from tests.test_retriever import (
         test_retriever_basic,
-        test_retriever_top_k,
-        test_retriever_result_types,
         test_retriever_descending_scores,
         test_retriever_rank_assignment,
+        test_retriever_result_types,
+        test_retriever_top_k,
     )
+
     print("Retriever tests:")
     test_retriever_basic()
     print("  basic: PASS")
@@ -69,6 +71,7 @@ def run_prompt_tests():
         test_make_prompt_from_results,
         test_prompt_system_instruction,
     )
+
     print("Prompt tests:")
     test_build_prompt_with_context()
     print("  with_context: PASS")
@@ -84,10 +87,11 @@ def run_pipeline_tests():
     """Run pipeline tests."""
     from tests.test_rag_pipeline import (
         test_pipeline_abstention_no_chunks,
-        test_pipeline_with_mocked_llm,
         test_pipeline_abstention_on_empty_answer,
         test_pipeline_top_k_limit,
+        test_pipeline_with_mocked_llm,
     )
+
     print("Pipeline tests:")
     test_pipeline_abstention_no_chunks()
     print("  abstention_no_chunks: PASS")
@@ -102,10 +106,11 @@ def run_pipeline_tests():
 def run_cli_output_tests():
     """Run CLI output tests."""
     from tests.test_cli_output import (
+        test_cli_abstention_format,
         test_cli_protocol_four_blocks,
         test_cli_retrieved_doc_format,
-        test_cli_abstention_format,
     )
+
     print("CLI output tests:")
     test_cli_protocol_four_blocks()
     print("  protocol: PASS")

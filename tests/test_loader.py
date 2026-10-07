@@ -11,10 +11,10 @@ from ingestion.loader import discover_documents
 
 
 def test_discover_documents_with_existing_dir():
-    """Test that discover_documents finds the 8 synthetic Telco documents."""
+    """Test that discover_documents finds the 10 synthetic Telco documents."""
     doc_dir = Path(__file__).parent.parent / "data" / "documents"
     docs = discover_documents(str(doc_dir))
-    assert len(docs) == 8, f"Expected 8 documents, got {len(docs)}"
+    assert len(docs) == 10, f"Expected 10 documents, got {len(docs)}"
     doc_ids = [d.document_id for d in docs]
     assert "5g_packet_loss" in doc_ids, f"5g_packet_loss not found in {doc_ids}"
     packet_loss = next(d for d in docs if d.document_id == "5g_packet_loss")
@@ -37,4 +37,6 @@ def test_discover_documents_empty_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
         with pytest.raises(FileNotFoundError):
             discover_documents(tmpdir)
+
+
 print("✓ Loader tests passed")

@@ -19,7 +19,7 @@ def test_chunk_document_basic():
         document_name="test.md",
         source="test.md",
         content="This is a test content for chunking purposes with enough text "
-                "to be split into multiple chunks across the chunk size boundary.",
+        "to be split into multiple chunks across the chunk size boundary.",
     )
     chunks = chunk_document(doc, chunk_size=50, chunk_overlap=10)
     assert len(chunks) > 1, f"Expected multiple chunks, got {len(chunks)}"
@@ -69,4 +69,6 @@ def test_chunk_document_chunk_size_overlap_validation():
     # negative overlap should fail
     with pytest.raises(ValueError):
         chunk_document(doc, chunk_size=100, chunk_overlap=-1)
+
+
 print("✓ Chunker tests passed")

@@ -11,7 +11,6 @@ production path (constitution XV): if the model is unavailable we raise a
 clear, actionable error (spec Edge Case).
 """
 
-
 import numpy as np
 from sentence_transformers import SentenceTransformer
 

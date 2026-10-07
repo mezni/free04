@@ -21,9 +21,7 @@ def _hits(results: Sequence[RetrievalResult], expected: Sequence[str]) -> list[s
     return [doc_id for doc_id in expected if doc_id in retrieved]
 
 
-def recall_at_k(
-    results: Sequence[RetrievalResult], question: EvaluationQuestion, k: int
-) -> float:
+def recall_at_k(results: Sequence[RetrievalResult], question: EvaluationQuestion, k: int) -> float:
     """Recall@K for a single question; 1.0 if the expected doc is in top-K."""
     if question.is_unanswerable:
         return 0.0

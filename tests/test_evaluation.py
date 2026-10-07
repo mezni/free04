@@ -135,6 +135,7 @@ def test_mrr_expected_doc_at_rank_3_is_one_third(tmp_path):
         collection_name="test_c",
         dimension=DIM,
     )
+
     class _Ranked:
         """query=[4,3,2,1] -> broadband(4) rank1, enterprise(3) rank2,
         latency(2) rank3, packet_loss(1) rank4 (distinct cosines, no ties)."""
@@ -172,12 +173,8 @@ def test_mrr_expected_doc_at_rank_3_is_one_third(tmp_path):
 
 def test_unanswerable_excluded_and_counted(tmp_path):
     r = _setup(tmp_path)
-    unanswerable_q = EvaluationQuestion(
-        id="q-un", question="xxxxxx", relevant_documents=[]
-    )
-    answerable_q = EvaluationQuestion(
-        id="q-a", question="eeee", relevant_documents=["5g_latency"]
-    )
+    unanswerable_q = EvaluationQuestion(id="q-un", question="xxxxxx", relevant_documents=[])
+    answerable_q = EvaluationQuestion(id="q-a", question="eeee", relevant_documents=["5g_latency"])
     # "xxxxxx" -> embedding near e2 (broadband) = a false positive
     report = evaluate_retrieval([unanswerable_q, answerable_q], r, k=4)
     assert report["recall_at_k"] == 1.0
@@ -235,9 +232,7 @@ def test_unanswerable_filters_to_true_negative_with_threshold(tmp_path):
     retriever = Retriever(store, _UnanswerableEmbedder())
     q = EvaluationQuestion(id="q-un", question="xxxx", relevant_documents=[])
     # threshold 0.3: single hit (score 0.0) is filtered out -> true negative.
-    report = evaluate_retrieval(
-        [q], retriever, k=4, similarity_threshold=0.3
-    )
+    report = evaluate_retrieval([q], retriever, k=4, similarity_threshold=0.3)
     assert report["true_negatives"] == 1
     assert report["false_positives"] == 0
     # threshold 0.0 (no filtering): the hit remains -> false positive.

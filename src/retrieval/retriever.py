@@ -5,7 +5,6 @@ metadata_filter), embeds the question, searches the store, drops results
 below the threshold, and assigns 1-based ranks.
 """
 
-
 from domain import RetrievalQuery, RetrievalResult
 from embeddings.embedder import Embedder
 from retrieval.vector_store import VectorStore
@@ -22,9 +21,7 @@ class Retriever:
         """Search for top-K chunks relevant to the question."""
         query_vector = self.embedder.embed_query(query.question)
 
-        metadata_filter = (
-            dict(query.metadata_filter) if query.metadata_filter is not None else None
-        )
+        metadata_filter = dict(query.metadata_filter) if query.metadata_filter is not None else None
 
         results = self.vector_store.query(
             query_vector,

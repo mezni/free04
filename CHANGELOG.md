@@ -9,11 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec.php#pe
 
 | Version | Feature Domain | Key Objectives |
 |---------|---------------|----------------|
+| 0.4.0 | Level 2 — Grounded RAG | Evidence objects, structured grounded answers, citation validation, abstention, conflict reporting, two-layer (retrieval + answer) evaluation |
 | 0.3.0 | Level 1 — RAG Foundations | Real embeddings + ChromaDB, typed metadata, Typer CLI, retrieval evaluation, config polish |
 | 0.2.0 | Level 0 — Naive RAG Baseline | First working RAG pipeline with deterministic tests |
 | 0.0.1   | Project          | Scaffold|
-| 0.1-pre | Repo       | Cleanup|
+| 0.0.1-pre | Repo       | Cleanup|
 
+
+## [0.4.0] - 2026-10-07
+
+### Added
+- **Evidence objects (FR-001/002):** `src/grounding/evidence_builder.py` projects retrieval results into stable `EVIDENCE-nnn` objects (id, document_id, chunk_id, title, source, text, retrieval_score, rank)
+- **Structured grounded answers (FR-003/004):** `GroundedAnswer` schema (answer + citations + abstained/sufficient_evidence/conflicts) with `extra="forbid"`; `generate_json` in `src/generation/llm.py` (400/422 retry); `parse_grounded_answer` raises `StructuredOutputError` on malformed output (contract rule 1)
+- **Citation validation (FR-007/008):** `src/grounding/citation_validator.py` — MALFORMED/UNKNOWN_DOCUMENT/UNKNOWN_CHUNK/NOT_RETRIEVED/VALID verdicts, duplicate-invariant (SC-002); invalid citations never displayed
+- **Abstention (FR-011/012):** `src/grounding/abstention.py` `decide()` layered over evidence count/threshold/model report; pipeline abstains instead of fabricating; legacy `used_context/abstention` keys preserved
+- **Conflict reporting (FR-019):** contradictory evidence surfaced as `Conflicts:` blocks (named sources), never merged
+- **Debug grounding (FR-013/014):** `--debug-grounding` prints the full grounding path (Retrieved Evidence / sufficiency / Generated Answer / Citations / Validation / Conflicts / Final Response)
+- **Two-layer evaluation (FR-015/016):** `evaluate --answers` (or `--dataset data/evaluation/grounded_answers.jsonl`) reports a separately-labeled answer layer — correctness, abstention accuracy, citation validity, citation completeness, groundedness counts (Principle XXII); `data/evaluation/grounded_answers.jsonl` with answerable/unanswerable/partial/conflict cases
+- **Groundedness (research R4):** `src/evaluation/groundedness.py` deterministic lexical claim/evidence support baseline + `GroundednessJudge` Protocol/`StructuredJudge` for isolated live judging
+- **Prompt-strategy experiments (FR-023/SC-009):** strategies A-D over the grounded dataset, recorded in `docs/levels/level-02-grounded-rag/experiments.md`; `scripts/run_grounded_experiments.py` (deterministic `CopyOracle` by default, live via `--oracle llm`)
+- **Lessons learned (FR-024):** `docs/levels/level-02-grounded-rag/lessons-learned.md` incl. the FR-018 failure-attribution procedure (retrieval vs generation/grounding)
+- **Corpus:** `data/documents/5g_speed.md` + `data/documents/5g_speed_reporting.md` (marketing-vs-reality conflict/partial sources), 10 docs → 20 chunks
+- **Test suite (155 tests):** evidence, answer schema, citation validator, abstention, grounding, answer evaluation, experiment harness, six hallucination scenarios, six named Level 2 regressions (FR-021); ruff + mypy clean; Suite hermetic (FR-022)
+
+### Changed
+- **CLI `query`:** grounded path by default (evidence → sufficiency → generation → citation validation); `Sources:` lists only VALID citations; FAIL banner + exit code when validation fails; conflict lines under normal mode
+- **CLI `evaluate`:** retrieval layer unchanged; `--answers`/`--answers-dataset` and grounded-dataset auto-detection route to the answer layer
+- **`RAGPipeline.run()`** delegates to `run_grounded()` (research R7), preserving every legacy key; grounded extras are additive (`evidence`, `grounded_answer`, `citation_validation`, `evidence_sufficiency`, `abstained`, `sufficient_evidence`, `conflicts`)
+- **Config:** `grounded_dataset_path`, grounding `sufficiency_threshold` / `min_evidence` / `structured_output` settings
+
+### Fixed
+- Groundedness verdicts never score abstention text as a claim (US6/T036)
+- Citation validation deduplicates identical `(document_id, chunk_id)` pairs (first wins)
 
 ## [0.3.0] - 2026-10-06
 
@@ -56,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec.php#pe
 - **Project scaffold:** `pyproject.toml`, `.env.example`, `.gitignore`, `README.md`, test directory structure
 
 
-## [0.1-pre] - 2026-08-16
+## [0.0.1-pre] - 2026-08-16
 
 ### Added
 - **Cleanup repo:**
