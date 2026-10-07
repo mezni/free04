@@ -149,8 +149,12 @@ class VectorStore:
                 document_name=str(meta.get("document_name", "") or ""),
                 source=str(meta.get("source", "") or ""),
                 chunk_index=int(str(meta.get("chunk_index", 0))),
-                metadata={k: v for k, v in meta.items() if k not in
-                          ("document_id", "document_name", "source", "chunk_id", "chunk_index")},
+                metadata={
+                    k: v
+                    for k, v in meta.items()
+                    if k
+                    not in ("document_id", "document_name", "source", "chunk_id", "chunk_index")
+                },
             )
             results.append(RetrievalResult(chunk=chunk, score=score, rank=rank))
 

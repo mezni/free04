@@ -72,9 +72,7 @@ def test_retrieve_returns_descending_scores(tmp_path):
     r = _setup(tmp_path, [_chunk("a", "a"), _chunk("b", "b")])
     results = r.retrieve(RetrievalQuery(question="aaaa", top_k=2))
     assert len(results) == 2
-    assert [res.score for res in results] == sorted(
-        (res.score for res in results), reverse=True
-    )
+    assert [res.score for res in results] == sorted((res.score for res in results), reverse=True)
     assert [res.rank for res in results] == [1, 2]
 
 

@@ -6,7 +6,7 @@ A structured roadmap for building an enterprise-grade Retrieval-Augmented Genera
 
 ```bash
 uv sync                    # install dependencies + `telco-rag` console script
-uv run pytest              # run the full test suite (61 tests)
+uv run pytest              # run the full test suite (155 tests)
 ```
 
 Configuration lives in `config/settings.yaml` (corpus path, chunk size/overlap,
@@ -55,13 +55,41 @@ Full runnable walkthrough with success criteria: `specs/002-level-1-rag-foundati
 | **23 — Agent Governance** | Tool permissions, action authorization, human-in-the-loop, action budgets, guardrails, agent audit trails, policy enforcement | How do we prevent an agent from taking unauthorized or dangerous actions? |
 | **24 — Production Enterprise Platform** | HA architecture, multi-region strategy, DR, autoscaling, enterprise API gateway, centralized IAM, observability platform, governance, FinOps, platform operations | Can this become a shared, reliable enterprise RAG platform used across a real telco? |
 
-## Current Status: Level 1 — RAG Foundations (0.3.0)
+## Current Status: Level 2 — Grounded RAG (0.4.0)
 
-Real infrastructure landing: sentence-transformers `BAAI/bge-small-en-v1.5`
-embeddings in a persistent ChromaDB store, Typer CLI (`ingest`/`query`/
-`evaluate`), debug retrieval diagnostics, similarity thresholding, and
-Recall@K/Precision@K/MRR evaluation. See `CHANGELOG.md` for the 0.3.0 feature
-entry.
+Level 1 landing is unchanged; Level 2 adds grounded answers, verifiable
+sources, abstention, and two-layer evaluation:
+
+- **Evidence (US1):** retrieval results become first-class `Evidence`
+  objects (`EVIDENCE-nnn`) carrying document/chunk identity, metadata, and
+  retrieval score; the generation prompt separates Question / Evidence /
+  Instructions and demands a structured `GroundedAnswer` (answer + citations
+  + abstained/sufficient_evidence/conflicts). `StructuredOutputError` guards
+  malformed model output.
+- **Citations (US2):** every generated citation is validated against the
+  retrieved evidence — nonexistent documents (`UNKNOWN_DOCUMENT`),
+  misattributed chunks (`UNKNOWN_CHUNK`), unretrieved chunks
+  (`NOT_RETRIEVED`), empty ids (`MALFORMED`). Invalid citations never reach
+  the user; `query` surfaces only `Sources:` that were actually retrieved.
+- **Abstention (US3):** the system abstains when there is no evidence, too
+  little evidence (`min_evidence` / `sufficiency_threshold`), or when the
+  model reports insufficiency — instead of fabricating an answer.
+- **Conflicts (US4/US6):** contradictory sources are surfaced as a named
+  `Conflicts:` block, never silently merged.
+- **Two-layer evaluation (US5):** `uv run telco-rag evaluate` still reports
+  the retrieval layer (`Recall@K` / `Precision@K` / `MRR`); `--answers`
+  adds a separately-labeled answer layer over
+  `data/evaluation/grounded_answers.jsonl` (answer correctness, abstention
+  accuracy, citation validity, citation completeness, groundedness counts).
+- **Diagnostics (US4):** `--debug-grounding` prints the full grounding path
+  (Retrieved Evidence → sufficiency → Generated Answer → Citations →
+  Validation → Conflicts → Final Response).
+
+Level 2 quickstart (scenarios V1–V10), data model, contracts, and recorded
+prompt-strategy experiments: `specs/003-level-2-grounded-rag/`. Deterministic
+tests (`FakeLLM`, science-only judging) keep the suite hermetic (FR-022);
+live-model behavior is recorded in
+`docs/levels/level-02-grounded-rag/experiments.md`, never asserted.
 
 ## Notes
 

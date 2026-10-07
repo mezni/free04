@@ -51,9 +51,7 @@ def _yaml_defaults() -> dict[str, Any]:
     mapping.setdefault("collection", sec.get("collection", "telco_documents"))
 
     sec = raw.get("embedding") or {}
-    mapping.setdefault(
-        "embedding_provider", sec.get("provider", "local-sentence-transformers")
-    )
+    mapping.setdefault("embedding_provider", sec.get("provider", "local-sentence-transformers"))
     mapping.setdefault("embedding_model", sec.get("model", "BAAI/bge-small-en-v1.5"))
 
     sec = raw.get("evaluation") or {}
@@ -62,6 +60,10 @@ def _yaml_defaults() -> dict[str, Any]:
         sec.get("dataset_path", "data/evaluation/retrieval_questions.jsonl"),
     )
     mapping.setdefault("eval_k", sec.get("default_k", 5))
+    mapping.setdefault(
+        "grounded_dataset_path",
+        sec.get("grounded_dataset_path", "data/evaluation/grounded_answers.jsonl"),
+    )
 
     sec = raw.get("llm") or {}
     mapping.setdefault("llm_base_url", sec.get("base_url", "https://openrouter.ai/api/v1"))
@@ -69,6 +71,11 @@ def _yaml_defaults() -> dict[str, Any]:
     mapping.setdefault("llm_model", sec.get("model", ""))
     mapping.setdefault("llm_max_tokens", sec.get("max_tokens", 512))
     mapping.setdefault("llm_temperature", sec.get("temperature", 0.0))
+
+    sec = raw.get("grounding") or {}
+    mapping.setdefault("sufficiency_threshold", sec.get("sufficiency_threshold", 0.0))
+    mapping.setdefault("min_evidence", sec.get("min_evidence", 1))
+    mapping.setdefault("structured_output", sec.get("structured_output", True))
 
     # Empty YAML values must not clobber field defaults for optional fields.
     for key in ("llm_base_url", "llm_model", "llm_api_key"):
@@ -117,12 +124,18 @@ class Settings(BaseSettings):
 
     eval_dataset_path: str = "data/evaluation/retrieval_questions.jsonl"
     eval_k: int = 5
+    grounded_dataset_path: str = "data/evaluation/grounded_answers.jsonl"
 
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
     llm_max_tokens: int = 512
     llm_temperature: float = 0.0
+
+    # Level 2 grounding (FR-011; research R3) — sufficiency decision signals.
+    sufficiency_threshold: float = 0.0
+    min_evidence: int = 1
+    structured_output: bool = True
 
     @classmethod
     def settings_customise_sources(
@@ -167,6 +180,20 @@ class Settings(BaseSettings):
     def _threshold(cls, v: float) -> float:
         if not -1.0 <= v <= 1.0:
             raise ValueError(f"SIMILARITY_THRESHOLD must be in [-1, 1], got {v}")
+        return v
+
+    @field_validator("sufficiency_threshold")
+    @classmethod
+    def _sufficiency_threshold(cls, v: float) -> float:
+        if not -1.0 <= v <= 1.0:
+            raise ValueError(f"SUFFICIENCY_THRESHOLD must be in [-1, 1], got {v}")
+        return v
+
+    @field_validator("min_evidence")
+    @classmethod
+    def _min_evidence(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError(f"MIN_EVIDENCE must be >= 0, got {v}")
         return v
 
     @field_validator("llm_temperature")

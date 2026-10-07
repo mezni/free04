@@ -28,3 +28,7 @@ llm:
   model: ""
   max_tokens: 512
   temperature: 0.0
+grounding:
+  sufficiency_threshold: 0.0
+  min_evidence: 1
+  structured_output: true

@@ -8,8 +8,14 @@ retriever — no Chroma-specific API leaks outside `src/retrieval/`.
 
 ```py
 class VectorStore:
-    def __init__(self, *, persist_directory: str, collection_name: str,
-                 dimension: int | None = None, distance_metric: str = "cosine"): ...
+    def __init__(
+        self,
+        *,
+        persist_directory: str,
+        collection_name: str,
+        dimension: int | None = None,
+        distance_metric: str = "cosine",
+    ): ...
 
     def add(self, chunks: list[Chunk], embeddings: list[np.ndarray]) -> None:
         """Store chunks + their pre-computed embeddings (explicit embeddings:
@@ -21,8 +27,9 @@ class VectorStore:
     def count(self) -> int:
         """Number of stored vectors (0 if collection absent/empty)."""
 
-    def query(self, query_embedding: np.ndarray, top_k: int,
-              metadata_filter: dict | None = None) -> list[RetrievalResult]:
+    def query(
+        self, query_embedding: np.ndarray, top_k: int, metadata_filter: dict | None = None
+    ) -> list[RetrievalResult]:
         """Cosine similarity search. Converts Chroma distances to scores
         (`score = 1 - distance`) so `RetrievalResult.score` is higher=better.
         Clamps `top_k` to the current collection size (ChromaDB raises
@@ -38,8 +45,9 @@ error (abstention path). ChromaDB exceptions are caught and re-raised as
 
 ```py
 class Retriever:
-    def __init__(self, vector_store: VectorStore, embedder: Embedder,
-                 top_k: int, similarity_threshold: float): ...
+    def __init__(
+        self, vector_store: VectorStore, embedder: Embedder, top_k: int, similarity_threshold: float
+    ): ...
 
     def retrieve(self, query: RetrievalQuery) -> list[RetrievalResult]:
         """1) embed query 2) vector_store.query(...) 3) sort by score desc

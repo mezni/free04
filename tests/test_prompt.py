@@ -12,15 +12,23 @@ from generation.prompt import build_prompt, make_prompt_from_results
 def test_build_prompt_with_context():
     """Test prompt building with retrieved context."""
     results = [
-        type('obj', (object,), {
-            'chunk': type('obj', (object,), {
-                'chunk_id': 'doc1#0001',
-                'content': '5G packet loss troubleshooting basics',
-                'document_id': 'doc1',
-                'document_name': '5g_packet_loss.md',
-                'source': 'data/documents/5g_packet_loss.md',
-            })(),
-        })()
+        type(
+            "obj",
+            (object,),
+            {
+                "chunk": type(
+                    "obj",
+                    (object,),
+                    {
+                        "chunk_id": "doc1#0001",
+                        "content": "5G packet loss troubleshooting basics",
+                        "document_id": "doc1",
+                        "document_name": "5g_packet_loss.md",
+                        "source": "data/documents/5g_packet_loss.md",
+                    },
+                )(),
+            },
+        )()
     ]
 
     prompt = build_prompt("How do I troubleshoot 5G packet loss?", results, use_context=True)
@@ -48,11 +56,11 @@ def test_make_prompt_from_results():
     results = [
         MagicMock(
             chunk=MagicMock(
-                chunk_id='doc1#0001',
-                content='test chunk content',
-                document_id='doc1',
-                document_name='5g_packet_loss.md',
-                source='data/documents/5g_packet_loss.md',
+                chunk_id="doc1#0001",
+                content="test chunk content",
+                document_id="doc1",
+                document_name="5g_packet_loss.md",
+                source="data/documents/5g_packet_loss.md",
             )
         )
     ]
@@ -72,9 +80,9 @@ def test_prompt_contains_question_and_context():
     results = [
         MagicMock(
             chunk=MagicMock(
-                content='test context content that is long enough to be used',
-                document_name='5g_packet_loss.md',
-                source='data/documents/5g_packet_loss.md',
+                content="test context content that is long enough to be used",
+                document_name="5g_packet_loss.md",
+                source="data/documents/5g_packet_loss.md",
             )
         )
     ]
