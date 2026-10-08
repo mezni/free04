@@ -18,6 +18,8 @@ KNOWN_DOC_IDS = frozenset(
     {
         "5g_latency",
         "5g_packet_loss",
+        "5g_speed",
+        "5g_speed_reporting",
         "broadband_connectivity",
         "enterprise_sla",
         "lte_troubleshooting",

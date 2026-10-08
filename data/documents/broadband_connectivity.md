@@ -1,3 +1,8 @@
+---
+category: broadband
+department: field-services
+product: broadband
+---
 # Broadband Connectivity
 
 ## Symptoms

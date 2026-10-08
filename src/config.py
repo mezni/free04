@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -50,6 +50,27 @@ def _yaml_defaults() -> dict[str, Any]:
     mapping.setdefault("vector_db_path", sec.get("vector_db_path", "data/chroma"))
     mapping.setdefault("collection", sec.get("collection", "telco_documents"))
 
+    # Level 3 advanced retrieval (contracts/retrieval-config.md).
+    mapping.setdefault("retrieval_strategy", sec.get("strategy", "vector"))
+    stage = sec.get("stage_top_k") or {}
+    mapping.setdefault("stage_top_k_vector", stage.get("vector", 20))
+    mapping.setdefault("stage_top_k_bm25", stage.get("bm25", 20))
+    mapping.setdefault("stage_top_k_hybrid", stage.get("hybrid", 20))
+    mapping.setdefault("stage_top_k_final", stage.get("final", 5))
+    fusion = sec.get("fusion") or {}
+    mapping.setdefault("fusion_method", fusion.get("method", "rrf"))
+    mapping.setdefault("fusion_k", fusion.get("k", 60))
+    mapping.setdefault("retrieval_filters", sec.get("filters") or {})
+
+    sec = raw.get("reranking") or {}
+    mapping.setdefault("rerank_enabled", sec.get("enabled", True))
+    mapping.setdefault("rerank_model", sec.get("model", "BAAI/bge-reranker-base"))
+    mapping.setdefault("rerank_candidate_k", sec.get("candidate_k", 20))
+    mapping.setdefault("rerank_final_k", sec.get("final_k", 5))
+
+    sec = raw.get("query_rewriting") or {}
+    mapping.setdefault("query_rewrite_enabled", sec.get("enabled", False))
+
     sec = raw.get("embedding") or {}
     mapping.setdefault("embedding_provider", sec.get("provider", "local-sentence-transformers"))
     mapping.setdefault("embedding_model", sec.get("model", "BAAI/bge-small-en-v1.5"))
@@ -83,6 +104,9 @@ def _yaml_defaults() -> dict[str, Any]:
             mapping.pop(key, None)
 
     return mapping
+
+
+RETRIEVAL_STRATEGIES = ("vector", "bm25", "hybrid", "hybrid_reranked")
 
 
 class YamlConfigSettingsSource(PydanticBaseSettingsSource):
@@ -136,6 +160,22 @@ class Settings(BaseSettings):
     sufficiency_threshold: float = 0.0
     min_evidence: int = 1
     structured_output: bool = True
+
+    # Level 3 advanced retrieval (contracts/retrieval-config.md).
+    retrieval_strategy: str = "vector"
+    stage_top_k_vector: int = 20
+    stage_top_k_bm25: int = 20
+    stage_top_k_hybrid: int = 20
+    stage_top_k_final: int = 5
+    fusion_method: str = "rrf"
+    fusion_k: int = 60
+    retrieval_filters: dict[str, Any] = Field(default_factory=dict)
+    rerank_enabled: bool = True
+    rerank_model: str = "BAAI/bge-reranker-base"
+    rerank_candidate_k: int = 20
+    rerank_final_k: int = 5
+    # Principle XXIX (NON-NEGOTIABLE): rewriting is off unless measured.
+    query_rewrite_enabled: bool = False
 
     @classmethod
     def settings_customise_sources(
@@ -230,6 +270,60 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"CHUNK_OVERLAP must be < CHUNK_SIZE ({self.chunk_size}), got {self.chunk_overlap}"
             )
+        return self
+
+    # --- Level 3 retrieval settings (FR-004/FR-005/FR-008, research R7) ---
+
+    @field_validator("retrieval_strategy")
+    @classmethod
+    def _strategy_closed_set(cls, v: str) -> str:
+        if v not in RETRIEVAL_STRATEGIES:
+            raise ValueError(
+                f"retrieval strategy must be one of {', '.join(RETRIEVAL_STRATEGIES)}, got {v!r}"
+            )
+        return v
+
+    @field_validator("fusion_method")
+    @classmethod
+    def _fusion_rrf_only(cls, v: str) -> str:
+        if v != "rrf":
+            raise ValueError(f"level 3 supports rrf fusion only, got {v!r}")
+        return v
+
+    @field_validator(
+        "stage_top_k_vector",
+        "stage_top_k_bm25",
+        "stage_top_k_hybrid",
+        "stage_top_k_final",
+        "fusion_k",
+        "rerank_candidate_k",
+        "rerank_final_k",
+    )
+    @classmethod
+    def _positive_int(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"expected value >= 1, got {v}")
+        return v
+
+    @field_validator("rerank_model")
+    @classmethod
+    def _rerank_model_non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reranking.model must be non-empty")
+        return v
+
+    @model_validator(mode="after")
+    def _rerank_final_within_pool(self) -> "Settings":
+        # Contract: final_k > candidate_k is a warning + clamp, not an error.
+        if self.rerank_final_k > self.rerank_candidate_k:
+            import warnings
+
+            warnings.warn(
+                f"reranking.final_k ({self.rerank_final_k}) > candidate_k "
+                f"({self.rerank_candidate_k}); clamping to {self.rerank_candidate_k}",
+                stacklevel=2,
+            )
+            self.rerank_final_k = self.rerank_candidate_k
         return self
 
 

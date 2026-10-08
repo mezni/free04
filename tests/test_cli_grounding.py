@@ -285,3 +285,21 @@ def test_evaluate_routes_grounded_dataset_to_answer_layer():
     assert "Answer Evaluation: 4 cases" in result.output
     assert "(answerable 1 / unanswerable 1 / partial 1 / conflict 1)" in result.output
     assert "Groundedness:" in result.output
+
+
+def test_evaluate_answers_flag_defaults_to_grounded_dataset():
+    """`evaluate --answers` with no path loads grounded_answers.jsonl (V13 quickstart).
+
+    Regression: the bare --answers route once resolved to
+    settings.eval_dataset_path (the retrieval dataset) and crashed
+    GroundedEvaluationCase validation.
+    """
+    pipeline = _fake_pipeline_outcome()
+    pipeline.llm_client.generate_json.return_value = (
+        '{"claim": "stub", "status": "SUPPORTED", "supporting_evidence_ids": []}'
+    )
+    result = _runner_invoke(["evaluate", "--answers", "--k", "2"], pipeline)
+    assert result.exit_code == 0, result.output
+    assert "Answer Evaluation: 4 cases" in result.output
+    assert "Retrieval Evaluation" not in result.output
+    print("✓ evaluate --answers defaults to the grounded dataset")

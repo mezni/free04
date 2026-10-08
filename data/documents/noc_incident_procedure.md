@@ -1,3 +1,8 @@
+---
+category: operations
+department: network-operations
+product: noc
+---
 # NOC Incident Procedure
 
 ## Symptoms

@@ -17,6 +17,7 @@ dependencies = [
     "httpx",
     "pyyaml",
     "typer",
+    "rank-bm25>=0.2.2",
 ]
 
 [project.scripts]
