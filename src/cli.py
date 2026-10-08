@@ -2,6 +2,7 @@
 
 Commands:
   ingest   — reset + rebuild the ChromaDB collection from data/documents/
+  retrieve — ranked results only, strategy-selectable, no LLM (Level 3)
   query    — retrieve + generate a grounded answer (or diagnostics only with
              --debug-retrieval; FR-007 US2)
   evaluate — retrieval metrics (added in US4)
@@ -169,6 +170,7 @@ def ingest() -> int:
     store.reset()
 
     total_chunks = 0
+    all_chunks = []
     for doc in docs:
         chunks = chunk_document(
             doc,
@@ -177,11 +179,21 @@ def ingest() -> int:
         )
         embeddings = embedder.embed_batch([c.content for c in chunks])
         store.add(chunks, embeddings)
+        all_chunks.extend(chunks)
         total_chunks += len(chunks)
+
+    # Level 3 (FR-002): the lexical index is derived from the same chunks —
+    # rebuilt here, never persisted as a second source of truth.
+    from retrieval.bm25 import BM25Index
+
+    bm25_index = BM25Index.build_from_chunks(all_chunks)
 
     elapsed = time.time() - started
     print(
         f"Ingested {total_chunks} chunks into collection '{settings.collection}' in {elapsed:.2f}s"
+    )
+    print(
+        f"Rebuilt BM25 lexical index over {len(bm25_index.chunks)} chunks (derived from documents)"
     )
     return 0
 
@@ -337,6 +349,148 @@ def query(
     return 0
 
 
+def _print_retrieval_debug(dbg) -> None:
+    """Print the diagnostic block from contracts/cli-retrieve.md §3.
+
+    Only stages that ran appear (latency keys, provenance fields) — absent
+    stages are omitted, never printed as 0 (Principle XXVI). The original
+    query is always shown (Principle XXIX).
+    """
+    import json
+
+    print(f"Query: {dbg.query}")
+    print(f"Rewritten query: {dbg.rewritten_query or '(not run)'}")
+    print(f"Strategy: {dbg.strategy}")
+    if dbg.filters:
+        print(f"Filters: {json.dumps(dbg.filters, sort_keys=True)}")
+    else:
+        print("Filters: (none)")
+    skipped = ", ".join(dbg.stages_skipped) if dbg.stages_skipped else "(none)"
+    print(f"Stages skipped: {skipped}")
+    print()
+
+    for i, r in enumerate(dbg.results, start=1):
+        parts = [f"score: {r.score:.4f}"]
+        if r.rrf_score is not None:
+            parts.append(f"rrf_score: {r.rrf_score:.4f}")
+        if r.vector_rank is not None:
+            parts.append(f"vector_rank: {r.vector_rank}")
+        if r.bm25_rank is not None:
+            parts.append(f"bm25_rank: {r.bm25_rank}")
+        if r.reranker_score is not None:
+            parts.append(f"reranker_score: {r.reranker_score:.2f}")
+        print(f"{i}. ({', '.join(parts)})")
+        text = r.chunk.content[:120].replace("\n", " ").strip()
+        print(f"   [{r.chunk.chunk_id}]")
+        print(f"   {text}")
+
+    if dbg.results:
+        print()
+
+    order = ["rewrite", "embed", "vector", "bm25", "filter", "fuse", "rerank", "total"]
+    present = [(k, dbg.latency_ms[k]) for k in order if k in dbg.latency_ms]
+    print("Latency (ms): " + " | ".join(f"{k} {v:.1f}" for k, v in present))
+
+
+def _parse_cli_filters(pairs: list[str] | None) -> dict:
+    """Parse repeatable --filter key=value options (YAML scalar values).
+
+    Malformed input is a usage error (exit 1) — never a silent drop
+    (contracts/retrieval-config.md §3).
+    """
+    import yaml
+
+    parsed: dict = {}
+    for pair in pairs or []:
+        if "=" not in pair:
+            typer.echo(f"Error: invalid --filter {pair!r}: expected key=value", err=True)
+            raise typer.Exit(code=1)
+        key, _, raw = pair.partition("=")
+        key = key.strip()
+        if not key:
+            typer.echo(f"Error: invalid --filter {pair!r}: empty key", err=True)
+            raise typer.Exit(code=1)
+        try:
+            parsed[key] = yaml.safe_load(raw) if raw != "" else ""
+        except yaml.YAMLError as e:
+            typer.echo(f"Error: invalid --filter value {raw!r}: {e}", err=True)
+            raise typer.Exit(code=1) from e
+    return parsed
+
+
+@app.command()
+def retrieve(
+    question: Annotated[str, typer.Argument(help="Non-empty question")],
+    strategy: Annotated[
+        str | None,
+        typer.Option(help="Strategy: vector | bm25 | hybrid | hybrid_reranked"),
+    ] = None,
+    top_k: Annotated[
+        int | None,
+        typer.Option(help="Final result count (default: stage_top_k.final)"),
+    ] = None,
+    filter_: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--filter",
+            help="Metadata filter key=value (repeatable; value parsed as YAML scalar)",
+        ),
+    ] = None,
+    debug: Annotated[
+        bool,
+        typer.Option(help="Show the retrieval diagnostics block (FR-019)"),
+    ] = False,
+) -> int:
+    """Retrieve ranked results for a question — no LLM generation (FR-007)."""
+    from config import RETRIEVAL_STRATEGIES
+    from retrieval.controller import build_controller
+
+    question = question.strip()
+    if not question:
+        typer.echo("Error: Question cannot be empty", err=True)
+        raise typer.Exit(code=1)
+
+    if strategy is not None and strategy not in RETRIEVAL_STRATEGIES:
+        typer.echo(
+            f"Error: invalid strategy {strategy!r} (valid: {', '.join(RETRIEVAL_STRATEGIES)})",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if top_k is not None and top_k < 1:
+        typer.echo("Error: --top-k must be >= 1", err=True)
+        raise typer.Exit(code=1)
+
+    cli_filters = _parse_cli_filters(filter_)
+
+    try:
+        controller = build_controller(strategy=strategy)
+        # CLI filters merge OVER config filters (contracts/cli-retrieve.md §1).
+        merged_filters = {**controller.filters, **cli_filters}
+        dbg = controller.retrieve(question, strategy=strategy, filters=merged_filters, top_k=top_k)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    if debug:
+        _print_retrieval_debug(dbg)
+        return 0
+
+    query_mode = "rewritten" if dbg.rewritten_query else "original"
+    print(f"Strategy: {dbg.strategy} (query mode: {query_mode})")
+    print(f"Results: {len(dbg.results)}")
+    if dbg.results:
+        print()
+    for i, r in enumerate(dbg.results, start=1):
+        text = r.chunk.content[:120].replace("\n", " ").strip()
+        print(f"{i}. (score: {r.score:.4f})  {r.chunk.document_name}:{r.chunk.chunk_id}")
+        print(f"   {text}")
+    return 0
+
+
 def _run_answer_outcome(case, pipeline, judge, top_k: int) -> EvaluationOutcome:
     """Run one grounded case through the pipeline and produce its outcome.
 
@@ -441,7 +595,13 @@ def evaluate(
     if answer_layer:
         from evaluation.dataset import load_grounded_cases
 
-        answer_path = path or Path(settings.grounded_dataset_path)
+        answer_path = (
+            ground_path
+            if ground_path is not None
+            else (
+                Path(effective) if effective is not None else Path(settings.grounded_dataset_path)
+            )
+        )
         try:
             cases = load_grounded_cases(answer_path)
         except FileNotFoundError:

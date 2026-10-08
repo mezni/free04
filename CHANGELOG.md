@@ -9,12 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec.php#pe
 
 | Version | Feature Domain | Key Objectives |
 |---------|---------------|----------------|
+| 0.5.0 | Level 3 — Advanced Retrieval | BM25 lexical index, metadata filtering, hybrid RRF fusion, cross-encoder reranking, query rewriting, retrieval controller + provenance, evaluation matrix/ablation, failure attribution |
 | 0.4.0 | Level 2 — Grounded RAG | Evidence objects, structured grounded answers, citation validation, abstention, conflict reporting, two-layer (retrieval + answer) evaluation |
 | 0.3.0 | Level 1 — RAG Foundations | Real embeddings + ChromaDB, typed metadata, Typer CLI, retrieval evaluation, config polish |
 | 0.2.0 | Level 0 — Naive RAG Baseline | First working RAG pipeline with deterministic tests |
 | 0.0.1   | Project          | Scaffold|
 | 0.0.1-pre | Repo       | Cleanup|
 
+
+## [0.5.0] - 2026-10-08
+
+### Added
+- **BM25 lexical retrieval (FR-001/002):** `src/retrieval/bm25.py` — pure-Python index over loader+chunker output, rebuilt from documents at ingest (indexes derived, never truth); `rank-bm25` scoring, zero-score matches excluded
+- **Metadata filtering (FR-009…011):** YAML front matter → `Document.metadata` (additive, stripped from content), generic `--filter key=value` applied identically to every strategy at stage-pool level
+- **Hybrid retrieval + RRF (FR-004…007):** `src/retrieval/hybrid.py`/`fusion.py` — vector and BM25 branch lists fused by Reciprocal Rank Fusion (k=60, deterministic, no raw-score averaging per Principle XXV); duplicate chunks deduped, provenance keeps both branch ranks
+- **Cross-encoder reranking (FR-012…014):** `src/retrieval/reranker.py` — `BAAI/bge-reranker-base` over fusion candidates (candidate_k=20, final_k=5), lazy-loaded, injectable scorer for hermetic tests, disable path verified (stages skipped, never fabricated scores)
+- **Query rewriting (FR-015…018):** `src/retrieval/query_rewriter.py` — LLM-assisted rewrite, **off by default** (Principle XXIX), original query always preserved and shown, failure → warning + fallback to original, exit 0
+- **Retrieval controller (FR-003/005/008/019…021):** `src/retrieval/controller.py` — strategy selection (vector/bm25/hybrid/hybrid_reranked configurable without code changes), per-stage latency block, provenance fields (`vector_rank`/`bm25_rank`/`rrf_score`/`reranker_score`; skipped stages absent, never 0), `telco-rag retrieve --strategy --debug --filter`
+- **Evaluation matrix + ablation (FR-020…024):** `src/evaluation/retrieval_matrix.py` + `scripts/run_retrieval_experiments.py` — question × strategy × query mode (original/rewritten), Recall/Precision@1/3/5/10, MRR, chunk- and document-level labels, per-stage p50/p95 latency, per-category winners; 28-question dataset across 8 categories (`data/evaluation/retrieval_questions.jsonl`)
+- **Failure attribution (FR-025…029):** runnable decision-tree procedure (lessons-learned §10); three significant failures logged (F-001…F-003, all first-stage vector semantic misses) with named hermetic regressions in `tests/test_regressions_level3.py`
+- **Experiments + lessons:** `docs/levels/level-03-advanced-retrieval/{experiments,lessons-learned}.md` — measured matrix/ablation/latency/per-category tables; SC-003 refuted on this corpus (hybrid R@10 0.94 < vector 0.98); reranker measured not to pay on CPU (×154 ms for −0.04 R@5, +0.026 MRR); rewritten-query axis recorded TBD (no gateway) per FR-024
+
+### Fixed
+- **`evaluate --answers` default dataset (latent Level 2 CLI bug):** bare `--answers` resolved its path from `settings.eval_dataset_path` (the retrieval dataset) and crashed grounded-case validation; now defaults to `settings.grounded_dataset_path`, pinned by `test_evaluate_answers_flag_defaults_to_grounded_dataset`
+
+### Notes
+- Levels 0/1/2 behavior preserved (FR-027/SC-008): Level 2 suites pass unchanged; only additive Level 0 tests (front matter); full suite 270 green
+- Measured winners (28 questions): vector = default (R@5 0.90, R@10 0.98); hybrid wins multi-concept only; BM25 guarantees exact-term anchors + filtered coverage at 1.6 ms; all conclusions from measurements, not assumptions
 
 ## [0.4.0] - 2026-10-07
 

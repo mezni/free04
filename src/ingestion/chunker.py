@@ -26,6 +26,7 @@ def chunk_document(
     doc_id = document.document_id
     doc_name = document.document_name
     source = document.source
+    doc_metadata = dict(document.metadata)
 
     if not content.strip():
         # Edge case: empty document produces one empty chunk
@@ -38,6 +39,7 @@ def chunk_document(
                 document_name=doc_name,
                 source=source,
                 chunk_index=0,
+                metadata=dict(doc_metadata),
             )
         ]
 
@@ -60,6 +62,7 @@ def chunk_document(
                 document_name=doc_name,
                 source=source,
                 chunk_index=chunk_index,
+                metadata=dict(doc_metadata),
             )
         )
 

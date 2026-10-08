@@ -5,7 +5,7 @@ Answer. Field names kept compatible with Level 0 so regression tests still
 construct them directly.
 """
 
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -78,10 +78,15 @@ class RetrievalQuery(BaseModel):
 
 
 class RetrievalResult(BaseModel):
-    """A single ranked similarity-search result (data-model.md).
+    """A single ranked result from any strategy (data-model.md Level 3).
 
-    score is cosine similarity; higher = more similar (store converts Chroma
-    distances to scores: score = 1 - distance).
+    score's meaning is strategy-dependent (contracts/retrieval-result-schema.md):
+    cosine similarity for vector, BM25 score for bm25, RRF score for hybrid,
+    cross-encoder score for hybrid_reranked.
+
+    Level 3 provenance fields (Principle XXVI) are optional: `None` means
+    *the stage did not run* — never a fabricated value. Level 2 consumers
+    read only chunk/score/rank (FR-027 compatibility).
     """
 
     model_config = ConfigDict(validate_assignment=False)
@@ -89,6 +94,12 @@ class RetrievalResult(BaseModel):
     chunk: Chunk
     score: float
     rank: int
+
+    retrieval_method: str | None = None
+    vector_rank: int | None = None
+    bm25_rank: int | None = None
+    rrf_score: float | None = None
+    reranker_score: float | None = None
 
 
 class Answer(BaseModel):
@@ -105,18 +116,55 @@ class EvaluationQuestion(BaseModel):
     `relevant_documents` holds the expected `document_id`(s) for answerable
     questions; an empty list marks the question as UNANSWERABLE (FR-009a) —
     retrieval must return nothing for a correct true-negative.
+    `relevant_chunks` (optional) adds chunk-level ground truth used by the
+    retrieval matrix (FR-020); when empty, document labels are the truth.
+    `filters` (optional) carries the metadata restriction for
+    `metadata_filtered` questions — the matrix applies them per question.
     """
 
     id: str
     question: str
     relevant_documents: list[str] = Field(default_factory=list)
     category: str = "general"
+    relevant_chunks: list[str] = Field(default_factory=list)
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+    CATEGORIES: ClassVar[frozenset[str]] = frozenset(
+        {
+            # the eight Level 3 categories (FR-020)
+            "semantic",
+            "exact_terminology",
+            "error_code",
+            "acronym",
+            "multi_concept",
+            "ambiguous",
+            "metadata_filtered",
+            "unanswerable",
+            # legacy values remain readable (data-model.md)
+            "general",
+            "5g",
+            "lte",
+            "broadband",
+            "enterprise",
+            "operations",
+            "activation",
+        }
+    )
 
     @field_validator("question")
     @classmethod
     def _question_non_empty(cls, value: str) -> str:
         if not value.strip():
             raise ValueError(f"EvaluationQuestion {value!r}: question must be non-empty")
+        return value
+
+    @field_validator("category")
+    @classmethod
+    def _category_known(cls, value: str) -> str:
+        if value not in cls.CATEGORIES:
+            raise ValueError(
+                f"EvaluationQuestion category {value!r} not in {sorted(cls.CATEGORIES)}"
+            )
         return value
 
     @property

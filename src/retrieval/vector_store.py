@@ -57,6 +57,35 @@ class VectorStore:
                 metadata={"hnsw:space": self.distance_metric},
             )
 
+    # Keys the store itself owns; chunk-level metadata (front matter) is
+    # additive and never allowed to shadow them.
+    _FIXED_META_KEYS = frozenset(
+        {"document_id", "document_name", "source", "chunk_id", "chunk_index"}
+    )
+
+    @classmethod
+    def _chunk_metadata(cls, chunk: Chunk) -> dict:
+        """Fixed store keys plus scalar front-matter metadata (US4/FR-010).
+
+        ChromaDB metadata values must be str/int/float/bool — non-scalars
+        are stringified rather than dropped, so filters stay usable.
+        """
+        meta: dict = {
+            "document_id": chunk.document_id,
+            "document_name": chunk.document_name,
+            "source": chunk.source,
+            "chunk_id": chunk.chunk_id,
+            "chunk_index": chunk.chunk_index,
+        }
+        for key, value in (chunk.metadata or {}).items():
+            if key in cls._FIXED_META_KEYS or value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                meta[key] = value
+            else:
+                meta[key] = str(value)
+        return meta
+
     def add(self, chunks: list[Chunk], embeddings: list[np.ndarray]) -> None:
         """Store chunks with their pre-computed embeddings and metadata."""
         if not chunks:
@@ -72,16 +101,7 @@ class VectorStore:
                 ids=[c.chunk_id for c in chunks],
                 embeddings=[vec.tolist() for vec in embeddings],
                 documents=[c.content for c in chunks],
-                metadatas=[
-                    {
-                        "document_id": c.document_id,
-                        "document_name": c.document_name,
-                        "source": c.source,
-                        "chunk_id": c.chunk_id,
-                        "chunk_index": c.chunk_index,
-                    }
-                    for c in chunks
-                ],
+                metadatas=[self._chunk_metadata(c) for c in chunks],
             )
         except Exception as exc:
             raise RuntimeError(f"ChromaDB add failed: {exc}") from exc

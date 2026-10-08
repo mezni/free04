@@ -1,3 +1,8 @@
+---
+category: lte
+department: network-operations
+product: lte
+---
 # LTE Troubleshooting
 
 ## Symptoms

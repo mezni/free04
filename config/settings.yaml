@@ -9,10 +9,30 @@ chunking:
   chunk_overlap: 50
 
 retrieval:
-  top_k: 4
+  top_k: 4                     # Level 1 query depth (legacy, unchanged)
   similarity_threshold: 0.0
   vector_db_path: data/chroma
   collection: telco_documents
+  # Level 3 advanced retrieval (contracts/retrieval-config.md)
+  strategy: vector             # vector | bm25 | hybrid | hybrid_reranked
+  stage_top_k:
+    vector: 20
+    bm25: 20
+    hybrid: 20
+    final: 5
+  fusion:
+    method: rrf                # level 3 supports rrf only
+    k: 60
+  filters: {}                  # generic metadata filters, {} = unrestricted
+
+reranking:
+  enabled: true
+  model: BAAI/bge-reranker-base
+  candidate_k: 20
+  final_k: 5
+
+query_rewriting:
+  enabled: false              # Principle XXIX: off by default
 
 embedding:
   provider: local-sentence-transformers

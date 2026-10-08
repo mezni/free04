@@ -1,3 +1,8 @@
+---
+category: 5g
+department: network-operations
+product: 5g
+---
 # 5G Speed Reporting
 
 ## What Customers Experience

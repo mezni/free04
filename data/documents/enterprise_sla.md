@@ -1,3 +1,8 @@
+---
+category: enterprise
+department: sales
+product: sla
+---
 # Enterprise SLA for Broadband
 
 ## Symptoms

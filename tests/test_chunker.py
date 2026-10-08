@@ -71,4 +71,20 @@ def test_chunk_document_chunk_size_overlap_validation():
         chunk_document(doc, chunk_size=100, chunk_overlap=-1)
 
 
+def test_chunk_metadata_inherits_document_metadata():
+    """US4/T029: document-level metadata (front matter) flows to every chunk."""
+    doc = Document(
+        document_id="meta_doc",
+        document_name="meta_doc.md",
+        source="meta_doc.md",
+        content="Some content here",
+        metadata={"category": "5g", "department": "noc"},
+    )
+    chunks = chunk_document(doc, chunk_size=50, chunk_overlap=10)
+    assert chunks
+    for chunk in chunks:
+        assert chunk.metadata == {"category": "5g", "department": "noc"}
+    print("✓ chunks inherit document metadata")
+
+
 print("✓ Chunker tests passed")

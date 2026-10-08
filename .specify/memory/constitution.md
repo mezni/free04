@@ -2,67 +2,91 @@
 Sync Impact Report
 ==================
 Template source: constitution-template (resolved via resolve-template.sh)
-Version change: 1.1.0 -> 1.2.0
-Bump type: MINOR (new Level 2 principles and sections added; existing
+Version change: 1.2.0 -> 1.3.0
+Bump type: MINOR (new Level 3 principles and sections added; existing
            principles expanded; no principle removed or redefined)
+Source: docs/levels/level-03-advanced-retrieval/constitution.md
 
 Modified principles:
-  - "V. Explicit RAG Pipeline" -> expanded: Level 2 pipeline adds Evidence
-    Builder, Grounded Prompt, Structured Answer, and Citation Validator
-  - "VII. No Knowledge Outside the Corpus" -> expanded: abstention,
-    citations, and citation validation required; prompt instruction alone
-    is insufficient (Level 2 source Sections 9, 11)
-  - "XI. Tests From the Beginning" -> expanded: Level 2 test coverage
-    (evidence, answer schema, citations, abstention, grounding, answer
-    evaluation, pipeline, regression)
-  - "XII. CLI First" -> expanded: grounded output with sources; debug mode
-    exposes evidence, citations, and citation-validation result
-  - All other principles (I-IV, VI, VIII-X, XIII-XVI) -> unchanged
+  - "V. Explicit RAG Pipeline" -> expanded: Level 3 retrieval stages added
+    (Query Processing/Query Rewriter, Retrieval Controller, Vector/BM25/
+    Metadata Filter, RRF Fusion, Reranker)
+  - "VIII. Make Retrieval Inspectable" -> expanded: Level 3 debug output
+    exposes per-chunk vector rank, BM25 rank, RRF score, reranker score,
+    final rank, and original vs rewritten query (source Section 15)
+  - "X. Configuration Over Hardcoding" -> expanded: Level 3 knobs
+    (retrieval.strategy, retrieval.top_k.*, fusion.method/k,
+    retrieval.filters, reranking.*, query_rewriting.enabled)
+    (source Section 14)
+  - "XI. Tests From the Beginning" -> expanded: Level 3 test coverage
+    (bm25, hybrid, rrf, reranker, query rewriter, metadata filtering,
+    controller, Level 2 grounding compatibility) (source Section 13)
+  - "XII. CLI First" -> expanded: `telco-rag retrieve --strategy ...
+    --debug` retrieval diagnostics (source Section 7)
+  - "XV. Real Before Sophisticated" -> expanded: real rank-bm25 index
+    over real chunks, real cross-encoder reranker, real OpenRouter
+    query rewriting
+  - "XVI. Metrics Written, Not Hidden" -> expanded: evaluation matrix,
+    ablation A-G, and per-stage latency recorded in Python and written
+    to experiments.md (source Sections 9, 10, 14)
+  - "XXII. Two-Layer Evaluation" -> expanded: strategy comparison stays
+    inside the retrieval layer; answer-level evaluation unchanged
+  - All other principles (I-IV, VI, VII, IX, XIII, XIV, XVII-XXI,
+    XXIII) -> unchanged
 
 Added principles:
-  - "XVII. Evidence Is a First-Class Object (NON-NEGOTIABLE)"
-  - "XVIII. Validated Citations Only (NON-NEGOTIABLE)"
-  - "XIX. Abstention Is a Valid Result (NON-NEGOTIABLE)"
-  - "XX. Prompt Constraints Alone Are Insufficient (NON-NEGOTIABLE)"
-  - "XXI. Separation of Retrieval, Generation, and Validation"
-  - "XXII. Two-Layer Evaluation (NON-NEGOTIABLE)"
-  - "XXIII. Surface Conflicts, Never Merge Them"
+  - "XXIV. Complexity Must Justify Itself (NON-NEGOTIABLE)"
+  - "XXV. Rank Fusion, Not Score Averaging (NON-NEGOTIABLE)"
+  - "XXVI. Retrieval Provenance Is Mandatory"
+  - "XXVII. Failure Attribution by Decision Tree (NON-NEGOTIABLE)"
+  - "XXVIII. Documents Are Truth, Indexes Are Derived"
+  - "XXIX. The Original Query Is Always Preserved (NON-NEGOTIABLE)"
 
 Added sections:
-  - Purpose and Scope rewritten for Level 2 (source Sections 1, 5, 20);
-    Level 1 scope preserved as subsection "Level 1 Baseline (Established)"
-  - Level 2 Technology Constitution (source Section 3)
-  - Level 2 Evidence Constitution (source Section 6)
-  - Level 2 Citation Constitution (source Sections 7, 8, 16)
-  - Level 2 Grounded Answer Constitution (source Sections 9, 10)
-  - Level 2 Abstention and Evidence Sufficiency (source Sections 11, 12)
-  - Level 2 Groundedness and Conflict Handling (source Sections 13, 18)
-  - Level 2 Evaluation Constitution (source Sections 14, 15, 17)
-  - Level 2 Separation of Responsibilities (source Section 19)
-  - Level 2 Out of Scope (source Section 20)
-  - Level 2 Quality Gates: Definition of Done (source Section 22),
-    Exit Criteria (source Section 23)
-  - Level 2 Guiding Principle (source Section 24)
-  - Level 2 Backward Compatibility (builds on Level 1, does not replace it)
+  - Purpose and Scope rewritten for Level 3 (source Sections 1, 2, 3, 5);
+    Level 2 purpose preserved as subsection "Level 2 Baseline (Established)"
+  - Level 3 Technology Constitution (source Section 3)
+  - Level 3 BM25 Constitution (source Sections 2, 6)
+  - Level 3 Metadata Filtering Constitution (source Section 7)
+  - Level 3 Hybrid Retrieval and RRF Constitution (source Sections 8, 9)
+  - Level 3 Reranking Constitution (source Sections 9, 10)
+  - Level 3 Query Rewriting Constitution (source Sections 10, 11)
+  - Level 3 Retrieval Controller and Result Model Constitution
+    (source Sections 5, 6, 12)
+  - Level 3 Configuration Constitution (source Section 12)
+  - Level 3 CLI and Diagnostics Constitution (source Section 7)
+  - Level 3 Evaluation Constitution (source Sections 8, 9, 10)
+  - Level 3 Failure Analysis Constitution (source Section 11)
+  - Level 3 Latency Constitution (source Section 14)
+  - Level 3 Grounding Integration (source Section 12)
+  - Level 3 Out of Scope (source Section 22)
+  - Level 3 Backward Compatibility (builds on Levels 1-2, grounding
+    contract unchanged)
+  - Level 3 Quality Gates: Definition of Done (source Section 16),
+    Exit Criteria (source Section 17)
+  - Level 3 Completion Test
 
 Removed sections:
-  - none. Level 1 content preserved as the established baseline.
+  - none. Levels 1 and 2 content preserved as established baselines.
+  - Clarified: the historical "Level 2 Out of Scope" retrieval
+    exclusions (BM25/hybrid/reranking/query rewriting) bound Level 2
+    only; Level 3 lifts them via the new Level 3 sections.
 
 Placeholders left undefined: none.
 Follow-up TODOs: none.
 
 Date notes:
   - RATIFICATION_DATE kept at 2026-10-06 (original constitution adoption).
-  - LAST_AMENDED_DATE set to 2026-10-07 (Level 2 content incorporated).
+  - LAST_AMENDED_DATE set to 2026-10-08 (Level 3 content incorporated).
   - Governance "Runtime guidance" repointed from
-    docs/levels/level-01-rag-foundations/plan.md to
-    docs/levels/level-02-grounded-rag/plan.md.
+    docs/levels/level-02-grounded-rag/plan.md to
+    docs/levels/level-03-advanced-retrieval/plan.md.
 -->
 
 # Telco Enterprise RAG Constitution
 
-**Level:** 2 — Grounded RAG | **Status:** Active
-**Previous Level:** Level 1 — RAG Foundations (established) | **Next Level:** Level 3 — Advanced Retrieval
+**Level:** 3 — Advanced Retrieval | **Status:** Active
+**Previous Level:** Level 2 — Grounded RAG (established) | **Next Level:** Level 4 — Knowledge Lifecycle
 
 ## Core Principles
 
@@ -150,6 +174,16 @@ Retriever → Evidence Builder → Grounded Prompt → LLM
           → Structured Answer → Citation Validator → Final Response
 ```
 
+At Level 3 the retrieval stage itself expands into explicit, individually
+inspectable stages; the grounding stages above MUST remain unchanged:
+
+```text
+Query Processing (optional Query Rewriter) → Retrieval Controller
+  → Vector Search + BM25 Search + Metadata Filter → RRF Fusion
+  → Cross-Encoder Reranker → RetrievalResult[]
+  → Evidence Builder → ... (Level 2 unchanged)
+```
+
 Rationale: the pipeline is educational as well as architectural; learners
 MUST be able to point at each stage in the code.
 
@@ -202,6 +236,12 @@ generation (e.g., a `--debug-retrieval` CLI flag). The project MUST NOT
 require the user to inspect the final LLM answer to understand retrieval
 behavior.
 
+At Level 3, retrieval inspection MUST expose per-chunk provenance: the
+strategy used, vector rank, BM25 rank, RRF score, reranker score, and final
+rank — plus the original query and any rewritten query. If a retrieval
+decision cannot be explained from debug output, the diagnostics are
+incomplete.
+
 Rationale: each level exists to teach the fundamental RAG debugging
 question — did the system retrieve the right information before asking
 whether the LLM generated the right answer? An opaque answer is a failed
@@ -247,6 +287,20 @@ vector database path
 LLM configuration
 ```
 
+At Level 3 the following MUST additionally be configurable:
+
+```text
+retrieval strategy (vector | bm25 | hybrid | hybrid_reranked)
+per-strategy top_k (vector, bm25, hybrid, final)
+fusion method and k
+metadata filters
+reranking enabled / model / candidate_k / final_k
+query_rewriting enabled
+```
+
+Every experimental capability MUST be disable-able through configuration;
+controlled experiments require turning features OFF as much as ON.
+
 Secrets MUST NEVER be committed to Git. The `.env` file MUST be excluded
 from source control, and a `.env.example` template listing all required
 variables (without values) MUST be provided.
@@ -275,6 +329,19 @@ At Level 2 the suite MUST additionally cover, at minimum:
 - groundedness evaluation
 - answer evaluation metrics
 - grounded RAG pipeline integration
+
+At Level 3 the suite MUST additionally cover, at minimum:
+
+- BM25 index and retrieval (exact terms, error codes, acronyms,
+  no-result queries, top-K behavior, metadata preservation)
+- hybrid vector/BM25 combination
+- RRF fusion (both systems, one system, ties, duplicates, determinism)
+- reranker scoring and candidate/final-K behavior
+- query rewriting (original preserved, fallback on failure)
+- metadata filtering (generic keys)
+- retrieval controller strategy selection, deterministic behavior,
+  empty results, invalid configuration
+- Level 2 grounding compatibility with the advanced retriever
 
 Tests MUST distinguish deterministic application logic from external LLM
 behavior; assertions against live LLM output MUST be isolated from
@@ -307,6 +374,20 @@ Sources:
 
 and a debug mode MUST expose the full grounding path: retrieved evidence,
 generated answer, citations, and the citation-validation result (PASS/FAIL).
+
+At Level 3 the CLI MUST expose retrieval directly and allow strategy
+selection per invocation:
+
+```bash
+telco-rag retrieve "Why is 5G packet loss occurring?" --strategy hybrid
+telco-rag retrieve "Why is 5G packet loss occurring?" \
+  --strategy hybrid_reranked --debug
+```
+
+The `--debug` output MUST expose: query, rewritten query, strategy, chunk,
+vector rank, BM25 rank, RRF score, reranker score, and final rank. The
+`retrieve` command MUST stop at `RetrievalResult[]` — it MUST NOT generate
+answers.
 
 The CLI MUST make experimentation fast. A web UI MUST NOT be built at this
 level.
@@ -354,6 +435,12 @@ At Level 2 this means: real citation validation against real retrieval
 results, and real structured output from the LLM — not simulated grounding
 signals.
 
+At Level 3 this means: a real BM25 index (rank-bm25) built over the same
+chunks as vector retrieval, real cross-encoder scoring with
+BAAI/bge-reranker-base, and real OpenRouter query rewriting — not
+simulated scores, stub rerankers, or fake rewrites. A disabled feature
+MUST be disabled, not stubbed.
+
 Rationale: replacing simulation with reality is the core upgrade of each
 early level; sophistication built on simulation teaches nothing about real
 retrieval behavior.
@@ -368,6 +455,13 @@ At Level 2 this extends to answer-level metrics (answer correctness,
 groundedness, citation validity, citation completeness, abstention
 behavior): they MUST be implemented in Python with transparent logic, not
 hidden behind a RAG evaluation framework.
+
+At Level 3 this extends to the retrieval evaluation matrix (Vector, BM25,
+Hybrid, Hybrid + Reranker × original/rewritten query), the ablation study
+A-G (Recall, Precision, MRR, latency), and per-stage latency measurement.
+Results MUST be recorded in
+`docs/levels/level-03-advanced-retrieval/experiments.md`, never asserted;
+an unmeasured cell stays marked as unmeasured.
 
 Rationale: the purpose of evaluation is to understand what the metrics
 measure, not to run a black-box benchmark.
@@ -467,6 +561,12 @@ citation validity, citation completeness, abstention) MUST NOT replace them.
 
 Retrieval correctness MUST NOT be used as evidence of answer correctness.
 
+At Level 3 the retrieval layer itself splits into a strategy comparison
+(vector vs BM25 vs hybrid vs hybrid + reranker, original vs rewritten
+query). Strategy comparison MUST be reported inside the retrieval layer and
+MUST NOT replace either Level 1 retrieval metrics or Level 2 answer
+metrics.
+
 Rationale: a correct answer can follow from wrong retrieval and an incorrect
 answer can follow from correct retrieval; collapsing the layers hides both
 failure modes.
@@ -485,92 +585,211 @@ Document A states X, while Document B states Y.
 Rationale: silent merging fabricates a consensus that the corpus does not
 contain.
 
+### XXIV. Complexity Must Justify Itself (NON-NEGOTIABLE)
+
+Every retrieval component added at Level 3 MUST earn its place through
+measured results: its quality delta and its latency cost MUST both be
+recorded in `docs/levels/level-03-advanced-retrieval/experiments.md`.
+A component MUST NOT ship because it is common practice in enterprise RAG;
+it MUST ship because an experiment shows it improves retrieval for a class
+of questions. Experimental capabilities MUST be disable-able through
+configuration so that each component can be measured with and without
+itself.
+
+Rationale: "retrieve broadly, rank intelligently, measure objectively, and
+only add complexity when the evidence justifies it" is worthless as a slogan
+unless each added stage has a number attached to it.
+
+### XXV. Rank Fusion, Not Score Averaging (NON-NEGOTIABLE)
+
+Vector similarity scores and BM25 scores have different distributions and
+different ranges. Combining them by averaging or otherwise mixing raw
+scores MUST NOT be done. Hybrid retrieval MUST combine its retrievers
+through rank-based fusion (Reciprocal Rank Fusion with configurable `k`),
+which consumes only ordinal ranks.
+
+```text
+RRF(d) = Σ 1 / (k + rank_i(d))
+```
+
+Fusion MUST be deterministic: identical inputs MUST produce identical,
+stable ordering, with ties broken by a documented rule.
+
+Rationale: raw-score fusion silently weights retrievers by arbitrary score
+scale; rank fusion is scale-free and directly testable.
+
+### XXVI. Retrieval Provenance Is Mandatory
+
+Every `RetrievalResult` MUST record how it was found. At minimum the model
+carries:
+
+```text
+retrieval_method, score, rank,
+vector_rank, bm25_rank, rrf_score, reranker_score, metadata
+```
+
+Not every field is populated for every strategy — absence MUST be
+meaningful and MUST correspond to a stage that did not apply. Provenance
+fields MUST be preserved for diagnostics and MUST NOT alter Level 2
+grounding behavior.
+
+Rationale: without provenance the failure-analysis questions ("did BM25
+find it? did reranking preserve it?") cannot be answered from data.
+
+### XXVII. Failure Attribution by Decision Tree (NON-NEGOTIABLE)
+
+Every significant retrieval failure MUST be attributed using the decision
+tree, and the FIRST stage that lost the correct chunk names the failure:
+
+```text
+Was the correct chunk in the corpus?          NO → corpus/chunking problem
+Did vector retrieve it?                       NO → vector miss
+Did BM25 retrieve it?                         NO → BM25 miss
+Did hybrid retrieve it?                       NO → fusion miss
+Did reranking preserve it?                    NO → reranker demotion
+Did query rewriting help?                     (record: helped / neutral / hurt)
+```
+
+Fixes MUST target the attributed stage only; blind tuning across stages is
+prohibited. Every fixed failure MUST become a named regression test in
+`tests/`.
+
+Rationale: this is the difference between a retrieval-debugging methodology
+and guessing.
+
+### XXVIII. Documents Are Truth, Indexes Are Derived
+
+Source documents and their chunks are the source of truth. Both the vector
+store and the BM25 index are derived artifacts: each MUST be reproducible
+by re-running ingestion over the source documents, and MUST NOT be
+hand-edited or promoted to authoritative status. If an index disagrees with
+the corpus, the index is rebuilt, not patched.
+
+Rationale: Level 3 introduces a second index; without an explicit truth
+hierarchy, two derived stores become two competing sources of truth.
+
+### XXIX. The Original Query Is Always Preserved (NON-NEGOTIABLE)
+
+Query rewriting MUST preserve the original query unconditionally. The
+system MUST support original-query and rewritten-query operation as
+separate experimental modes; rewriting MUST be disabled by default and
+MUST fall back to the original query on any failure. Debug output MUST
+show both queries whenever a rewrite occurs. A rewrite MUST preserve user
+intent and technical identifiers (error codes, acronyms, protocol names)
+and MUST NOT add unsupported assumptions.
+
+Rationale: rewriting is the only Level 3 stage that mutates user input; it
+is off by default precisely because it must prove itself against the
+original before being trusted.
+
 ## Purpose and Scope
 
 This constitution defines the engineering principles and boundaries for
-Level 2 of the Telco Enterprise RAG project. The objective of Level 2 is:
+Level 3 of the Telco Enterprise RAG project. The objective of Level 3 is:
 
-> Retrieve evidence, generate from evidence, cite the evidence, and verify
-> the citations.
+> Retrieve broadly, rank intelligently, measure objectively, and only add
+> complexity when the evidence justifies it.
 
-Level 2 transforms the Level 1 retrieval system into a grounded RAG system.
-Level 1 established a real, measurable retrieval pipeline:
+Level 3 transforms the Level 2 grounded RAG system into an advanced
+retrieval system. Level 2 established:
 
 ```text
-Question → Real Embedding → ChromaDB → Retrieved Chunks
+Question → Vector Retriever → Evidence → Grounded Generation
+        → Citation-validated Answer
 ```
 
-Level 2 addresses the next fundamental problem:
+Level 2 proved answers can be grounded in retrieved evidence. Level 3
+addresses the next fundamental problem:
 
-> How do we ensure that the generated answer is supported by the retrieved
-> evidence?
+> What happens when the system cannot retrieve the right evidence in the
+> first place?
 
-The system MUST distinguish retrieved knowledge from generated claims. An
-answer is not trustworthy merely because the correct document was retrieved.
+Grounding validates what was retrieved; it cannot recover what was never
+found. Level 3 therefore attacks the retrieval layer itself:
 
-The Level 2 architecture is:
+```text
+Level 2 question:  Is this answer supported by the evidence we retrieved?
+Level 3 question:  Did we retrieve the right evidence at all — reliably,
+                   for every class of Telco question?
+```
+
+The Level 3 architecture is:
 
 ```text
                          INGESTION
                             │
                             ↓
-                       Documents → Chunks → Embeddings → ChromaDB
-                            │
+                      Documents → Chunks
+                ┌───────────┴───────────┐
+                ↓                       ↓
+          Embeddings → ChromaDB     BM25 Index
+                │                       │
+                └───────────┬───────────┘
                             ↓
                          RETRIEVAL
                             │
-User Question ───────→ Retriever → RetrievalResult[]
-                            │
+Question ──→ Query Processing (optional Query Rewriter)
                             ↓
-                     Evidence Builder → Grounded Prompt → OpenRouter
-                            │
+                  Retrieval Controller
+             ┌──────────────┼──────────────┐
+             ↓              ↓              ↓
+          Vector          BM25      Metadata Filter
+          Search         Search
+             └──────────────┼──────────────┘
                             ↓
-                    Structured Answer
-                            │
-                ┌───────────┴───────────┐
-                ↓                       ↓
-             Citations              Claims
-                └───────────┬───────────┘
+                     RRF Fusion → Candidate Pool
                             ↓
-                    Citation Validator → Final Response
+                 Cross-Encoder Reranker (optional)
+                            ↓
+                    Final RetrievalResult[]
+                            ↓
+              Level 2 Grounding Pipeline (unchanged contract)
+                            ↓
+                         Answer
 ```
 
-Level 2 is a grounding and evaluation learning level. It is **not a
+Level 3 is a retrieval-quality learning level. It is **not a
 production-ready enterprise system**.
 
 ### Included
 
-Level 2 includes only the capabilities required to demonstrate grounded
-answer generation:
+Level 3 includes only the capabilities required to demonstrate advanced
+retrieval and its measurement:
 
-- evidence represented as explicit structured objects
-- evidence builder transforming retrieval results into evidence
-- evidence-aware (grounded) prompts with clearly separated QUESTION,
-  EVIDENCE, and INSTRUCTIONS sections
-- structured answer output (answer, citations, abstention indicator)
-- structured JSON generation through OpenRouter, parsed with Pydantic
-- citation model (document_id, chunk_id, optionally evidence_id)
-- citation validation against actual retrieval results
-- abstention when evidence is insufficient
-- evidence-sufficiency signals (retrieval count, threshold, scores, LLM
-  structured assessment)
-- citation-aware CLI output with debug mode
-- extended evaluation dataset (answerable, unanswerable, partial-evidence,
-  and conflict questions)
-- answer correctness, groundedness, citation validity, citation
-  completeness, and abstention evaluation
-- hallucination and conflicting-evidence tests
-- regression tests for every discovered failure
-- preservation of Level 1 retrieval metrics (Recall@K, Precision@K, MRR)
+- BM25 lexical retrieval (rank-bm25) over the same chunks as vector
+  retrieval, with a reproducible index
+- generic metadata filtering (department, product, document_type,
+  classification, source — as configuration keys, not hardcoded)
+- hybrid retrieval combining vector and BM25 through rank fusion
+- Reciprocal Rank Fusion with configurable `k`
+- cross-encoder reranking (BAAI/bge-reranker-base), disable-able, with
+  candidate_k / final_k configuration
+- query rewriting via OpenRouter, disabled by default, original query
+  always preserved
+- retrieval controller selecting strategies (vector, bm25, hybrid,
+  hybrid_reranked) from configuration
+- retrieval provenance in `RetrievalResult` (vector_rank, bm25_rank,
+  rrf_score, reranker_score, retrieval_method)
+- `telco-rag retrieve` CLI with per-strategy selection and full `--debug`
+  diagnostics
+- expanded evaluation dataset covering: semantic, exact terminology,
+  error code, acronym, multi-concept, ambiguous, metadata-filtered, and
+  unanswerable questions
+- evaluation matrix (four strategies × original/rewritten query) with
+  Recall@K, Precision@K, MRR
+- ablation study A-G with per-stage latency measurement
+- retrieval failure analysis via the decision tree (Principle XXVII)
+- preservation of the complete Level 1/2 metric and grounding stack
 
 ### Explicitly Excluded
 
 The following capabilities belong to later maturity levels. Their exclusion
 is intentional:
 
-- BM25, hybrid search, reranking, query rewriting, query decomposition
+- query decomposition, multi-hop retrieval
 - document lifecycle, document approval, document governance
-- RBAC, ABAC, multi-tenancy, advanced security
+- RBAC, ABAC, multi-tenancy, advanced security (metadata filtering only
+  lays the foundation)
 - agents, memory, tool calling
 - production observability, distributed tracing, CI/CD, Kubernetes,
   multi-region deployment, FinOps
@@ -600,6 +819,34 @@ configuration (YAML + Pydantic Settings), tests, and project documentation.
 Level 1 exclusions (BM25/hybrid/reranking, knowledge lifecycle, security,
 platform, operations, frameworks) remain in force; see "Level 1 Out of
 Scope" below.
+
+### Level 2 Baseline (Established)
+
+Level 2 established the grounding layer that Level 3 MUST NOT replace:
+
+```text
+Level 2: Question → Retrieve → Evidence → Generate → Structured Answer
+         → Validate → Grounded Answer + Citations
+Level 3: Question → Retrieval Controller → Advanced Retrieval
+         → RetrievalResult[] → Evidence (Level 2, unchanged contract)
+         → Grounded Answer + Citations
+```
+
+Level 2 included: evidence as first-class objects, evidence builder,
+grounded prompts, structured answers, citation model and validation,
+abstention, evidence sufficiency, groundedness evaluation, conflict
+handling, answer-level evaluation (correctness, groundedness, citation
+validity/completeness, abstention), hallucination tests, and the two-layer
+evaluation separation.
+
+The Level 2 sections below remain in force. Level 3 changes WHAT is
+retrieved; HOW evidence is built, grounded, cited, validated, and checked
+MUST remain contractually unchanged, and the full Level 2 test suite MUST
+continue to pass.
+
+Level 2's retrieval exclusions (BM25, hybrid search, reranking, query
+rewriting) were scope boundaries of Level 2 only; Level 3 lifts exactly
+those exclusions — and no others.
 
 ## Level 2 Technology Constitution
 
@@ -891,6 +1138,11 @@ responsibility (Principle XXI).
 
 ## Level 2 Out of Scope
 
+> Historical scope boundary of Level 2. The retrieval exclusions below
+> (BM25, hybrid, reranking, query rewriting) bound Level 2 only and are
+> lifted by the Level 3 sections; the remaining exclusions stay in force
+> until their own levels.
+
 The following capabilities SHALL NOT be implemented at Level 2:
 
 **Retrieval:** BM25, hybrid search, reranking, query rewriting, query
@@ -991,6 +1243,495 @@ retrieved evidence → generated answer → citations → citation validation
 → groundedness evaluation → final response
 ```
 
+## Level 3 Technology Constitution
+
+Level 3 SHALL continue using the Level 1/2 stack. No framework SHALL be
+introduced to implement advanced retrieval.
+
+### Application
+
+Python 3.12+, uv, Pydantic v2, PyYAML, Typer — unchanged from Level 1/2.
+
+### Retrieval
+
+```text
+sentence-transformers, BAAI/bge-small-en-v1.5, ChromaDB — unchanged
+rank-bm25                          (new — lexical retrieval)
+BAAI/bge-reranker-base             (new — cross-encoder reranking)
+```
+
+### Generation
+
+OpenRouter with the OpenAI-compatible Python SDK — unchanged from Level 2;
+also used for query rewriting.
+
+### Testing and Evaluation
+
+pytest, pytest-cov, Ruff, mypy; Python/Pydantic evaluation logic —
+unchanged (Principle XVI).
+
+## Level 3 BM25 Constitution
+
+BM25 SHALL be introduced as a lexical retrieval peer to vector search —
+not a replacement (Principle I).
+
+- `BM25Index` and `BM25Retriever` SHALL operate over the same chunks used
+  by vector retrieval.
+- The index SHALL store `chunk_id`, `document_id`, chunk text, and
+  metadata.
+- The index MUST be reproducible from the source documents by re-running
+  ingestion (Principle XXVIII).
+- The BM25 index MUST NOT be the source of truth.
+- BM25 retrieval MUST be selectable as its own strategy (`strategy: bm25`)
+  and MUST return ordinary `RetrievalResult[]` with `retrieval_method`
+  recorded.
+
+Rationale: embeddings blur exact identifiers; error codes, acronyms, and
+protocol names ("X2 timeout 504") are where term-frequency matching beats
+cosine similarity over a small embedding model.
+
+## Level 3 Metadata Filtering Constitution
+
+Filters SHALL be generic key/value restrictions over document metadata,
+configured under `retrieval.filters`:
+
+```yaml
+retrieval:
+  strategy: vector
+  filters:
+    department: network
+    product: 5g
+```
+
+Supported keys SHALL include at least: department, product,
+document_type, classification, source — but the implementation MUST be
+generic over metadata keys, never hardcoded to these keys.
+
+- Filters SHALL apply uniformly to every retrieval strategy.
+- Filtering is a restriction mechanism only — it MUST NOT rank or score.
+- The generic interface is the foundation future authorization policies
+  MUST build on; filters MUST NOT be coupled to today's key set.
+
+Rationale: "which chunks may the system see" is a policy question that
+outlives any particular metadata schema.
+
+## Level 3 Hybrid Retrieval and RRF Constitution
+
+### Hybrid Retrieval
+
+The hybrid retriever SHALL execute vector search and BM25 search and
+combine the candidates (Principle XXV):
+
+```text
+Vector Search + BM25 Search → Candidate Combination
+```
+
+Averaging raw vector and BM25 scores MUST NOT be done — their score
+distributions differ (Principle XXV).
+
+### Reciprocal Rank Fusion
+
+```text
+RRF(d) = Σ 1 / (k + rank_i(d))
+```
+
+where `d` is a chunk, `rank_i` is its 1-based rank from retriever `i`,
+and `k` is a configurable constant (default 60).
+
+- Fusion SHALL consume ranks only, never raw scores.
+- Fusion MUST be deterministic: identical inputs produce identical
+  ordering; ties are broken by a stable, documented rule.
+- Duplicate chunks across systems MUST be handled explicitly, not
+  double-counted silently.
+- `k` MUST be configuration (`retrieval.fusion.k`), not a literal in code.
+- The fusion implementation MUST stay small and directly testable.
+
+Rationale: RRF is scale-free — it sidesteps score calibration entirely and
+is trivially testable.
+
+## Level 3 Reranking Constitution
+
+The cross-encoder reranker SHALL re-score the fused candidate pool:
+
+```text
+Hybrid top candidate_k (default 20) → BAAI/bge-reranker-base → final_k (default 5)
+```
+
+- Reranking SHALL be disable-able via `reranking.enabled` (Principle XXIV).
+- `model`, `candidate_k`, and `final_k` SHALL be configuration.
+- Reranker scores SHALL be recorded on the result (`reranker_score`), not
+  discarded (Principle XXVI).
+- The reranker MUST ONLY reorder candidates that fusion produced — it MUST
+  NOT introduce chunks from outside the candidate pool.
+- Reranking MUST NOT be applied implicitly to strategies other than
+  `hybrid_reranked`.
+
+Rationale: bi-encoder scoring is cheap but approximate (query and document
+scored independently); a cross-encoder reads them jointly at a cost bounded
+by reranking only the top candidates.
+
+## Level 3 Query Rewriting Constitution
+
+Query rewriting SHALL use OpenRouter and its prompt SHALL require:
+
+```text
+preserve user intent
+expand useful terminology
+preserve technical identifiers
+avoid adding unsupported assumptions
+return exactly one retrieval query
+```
+
+- The original query MUST always be preserved (Principle XXIX).
+- Original-query and rewritten-query operation SHALL be separate
+  experimental modes.
+- Rewriting SHALL be disabled by default
+  (`query_rewriting.enabled: false`).
+- Debug output MUST show both queries whenever a rewrite occurs.
+- A rewrite failure MUST fall back to the original query — a failed
+  rewrite MUST NOT fail the request.
+- Rewritten output MUST NOT be asserted as an improvement without an
+  original-vs-rewritten measurement in `experiments.md`.
+
+Rationale: rewriting adds a network call, latency, and a failure mode; it
+must prove itself against the original before being enabled.
+
+## Level 3 Retrieval Controller and Result Model Constitution
+
+### Controller
+
+The `RetrievalController` SHALL be the single entry point for retrieval,
+with exactly these responsibilities:
+
+```text
+select strategy
+apply filters
+rewrite query if enabled
+retrieve candidates
+fuse candidates
+rerank candidates
+return final RetrievalResult[]
+```
+
+- The controller MUST NOT generate answers (Principle XXI).
+- Supported strategies: `vector`, `bm25`, `hybrid`, `hybrid_reranked`.
+- An unknown or misconfigured strategy MUST fail loudly at configuration
+  or invocation time — silent fallback to another strategy is prohibited.
+- The controller MUST be deterministic for a fixed configuration.
+
+### Result Model
+
+`RetrievalResult` SHALL carry provenance (Principle XXVI):
+
+```text
+RetrievalResult(
+    document_id, chunk_id, text,
+    score, rank,
+    retrieval_method, metadata,
+    vector_rank, bm25_rank,
+    rrf_score, reranker_score,
+)
+```
+
+Not every field is populated for every strategy; absence MUST be
+meaningful. The model MUST remain backward compatible with the Level 2
+Evidence Builder contract.
+
+## Level 3 Configuration Constitution
+
+All Level 3 behavior SHALL be configuration-driven (Principle X). Example:
+
+```yaml
+retrieval:
+  strategy: hybrid
+  top_k:
+    vector: 20
+    bm25: 20
+    hybrid: 20
+    final: 5
+  fusion:
+    method: rrf
+    k: 60
+  filters: {}
+
+reranking:
+  enabled: true
+  model: BAAI/bge-reranker-base
+  candidate_k: 20
+  final_k: 5
+
+query_rewriting:
+  enabled: false
+```
+
+- Every experimental knob SHALL have a default.
+- Invalid configuration MUST fail at load time, not at query time.
+- Every strategy MUST be selectable without code changes.
+
+## Level 3 CLI and Diagnostics Constitution
+
+The CLI SHALL expose retrieval directly:
+
+```bash
+telco-rag retrieve "Why is 5G packet loss occurring?"
+telco-rag retrieve "Why is 5G packet loss occurring?" --strategy vector
+telco-rag retrieve "Why is 5G packet loss occurring?" --strategy bm25
+telco-rag retrieve "Why is 5G packet loss occurring?" --strategy hybrid
+telco-rag retrieve "Why is 5G packet loss occurring?" \
+  --strategy hybrid_reranked --debug
+```
+
+`--debug` output SHALL expose, per chunk:
+
+```text
+Query | Rewritten Query | Strategy | Chunk
+Vector Rank | BM25 Rank | RRF Score | Reranker Score | Final Rank
+```
+
+The `retrieve` command MUST stop at `RetrievalResult[]`; it MUST NOT
+generate answers. Retrieval diagnostics MUST NEVER require reading source
+code (Principle VIII).
+
+## Level 3 Evaluation Constitution
+
+### Evaluation Matrix
+
+Every retrieval question SHALL be evaluated with each strategy:
+
+```text
+Vector | BM25 | Hybrid | Hybrid + Reranker
+```
+
+and separately for:
+
+```text
+Original Query | Rewritten Query
+```
+
+### Metrics
+
+```text
+Recall@1 / @3 / @5 / @10
+Precision@1 / @3 / @5 / @10
+MRR
+Latency
+```
+
+### Ablation Study
+
+```text
+A: Vector only
+B: BM25 only
+C: Vector + BM25
+D: Vector + BM25 + RRF
+E: Hybrid + Reranker
+F: Hybrid + Query Rewriting
+G: Hybrid + Query Rewriting + Reranker
+```
+
+Deltas between consecutive experiments isolate the contribution of each
+component; each component's quality gain MUST be judged against its
+latency cost (Principle XXIV).
+
+### Evaluation Dataset
+
+`data/evaluation/retrieval_questions.jsonl` SHALL cover, at minimum:
+
+```text
+semantic
+exact terminology
+error code
+acronym
+multi-concept
+ambiguous
+metadata-filtered
+unanswerable
+```
+
+Unanswerable questions SHALL be scored and reported separately — they MUST
+NOT be silently averaged into answerable-question Recall.
+
+### Recording
+
+All results SHALL be recorded in
+`docs/levels/level-03-advanced-retrieval/experiments.md`. Strategy claims
+("BM25 wins for error codes") MUST trace to a measured number; an
+unmeasured cell stays marked unmeasured (Principle XVI).
+
+## Level 3 Failure Analysis Constitution
+
+Every significant retrieval failure SHALL be diagnosed with the decision
+tree (Principle XXVII):
+
+```text
+Was the correct chunk in the corpus?     NO → corpus/chunking problem
+        ↓ YES
+Did vector retrieve it?                  NO → vector miss
+        ↓
+Did BM25 retrieve it?                    NO → BM25 miss
+        ↓
+Did hybrid retrieve it?                  NO → fusion miss
+        ↓
+Did reranking preserve it?               NO → reranker demotion
+        ↓
+Did query rewriting help?                (helped / neutral / hurt)
+```
+
+- Each stage is a yes/no question answered from debug output or evaluation
+  data.
+- A failure MUST be attributed to the FIRST stage that lost the chunk, and
+  fixes MUST target only that stage.
+- The failure log SHALL be maintained in `experiments.md`.
+- Each fixed failure MUST become a named regression test in `tests/`.
+
+This creates a retrieval-debugging methodology rather than blind tuning.
+
+## Level 3 Latency Constitution
+
+Level 3 SHALL establish the first retrieval performance baseline by
+recording, at minimum:
+
+```text
+embedding latency
+vector retrieval latency
+BM25 latency
+fusion latency
+reranking latency
+query rewriting latency
+total retrieval latency
+```
+
+- Latency SHALL be reported alongside quality metrics in the ablation
+  study.
+- A component whose quality gain does not justify its latency is a
+  candidate for removal (Principle XXIV) — complexity must pay rent.
+
+## Level 3 Grounding Integration
+
+Level 2 grounding SHALL NOT be rewritten. The flow becomes:
+
+```text
+Question
+   ↓
+Retrieval Controller → Advanced Retrieval → RetrievalResult[]
+   ↓
+Evidence Builder (Level 2, unchanged contract) → Evidence[]
+   ↓
+Grounded Generator → Answer
+   ↓
+Citation Validator → Grounding Checker → Final Response
+```
+
+- The Evidence Builder MUST keep consuming `RetrievalResult[]`.
+- Level 2 grounding tests MUST pass unchanged (Principle XI).
+- Retrieval provenance (`vector_rank`, `rrf_score`, `reranker_score`)
+  MUST NOT leak into grounding behavior unless deliberately designed and
+  tested.
+
+## Level 3 Out of Scope
+
+The following capabilities SHALL NOT be implemented at Level 3:
+
+**Retrieval:** query decomposition, multi-hop retrieval.
+
+**Knowledge governance:** document lifecycle, document approval.
+
+**Security:** RBAC, ABAC, multi-tenancy, advanced security — metadata
+filtering only lays the foundation for them.
+
+**Platform:** agents, memory, tool calling, production observability,
+distributed tracing, CI/CD, Kubernetes, multi-region deployment, FinOps.
+
+**Frameworks:** LangChain, LlamaIndex, LangGraph, RAG evaluation
+frameworks, agent frameworks — unless an experiment demonstrates a specific
+need, in which case the need MUST be documented before adoption
+(Principle II).
+
+## Level 3 Backward Compatibility
+
+Level 3 MUST preserve Levels 1 and 2. The change is a richer retrieval
+layer, not a redesign of grounding:
+
+```text
+Level 1: Question → Retrieve → Generate → Answer
+Level 2: Question → Retrieve → Evidence → Generate → Structured Answer
+         → Validate → Grounded Answer + Citations
+Level 3: Question → Controller → Advanced Retrieval → RetrievalResult[]
+         → Evidence → Generate → Validate → Grounded Answer + Citations
+```
+
+Level 1 retrieval metrics and diagnostics, Level 2 grounding behavior, and
+both regression suites MUST remain available and passing. Declaring Level
+3 complete MUST NOT mark any Level 1/2 metric or test obsolete.
+
+## Level 3 Quality Gates
+
+### Definition of Done
+
+Level 3 is complete when:
+
+- [ ] BM25 works
+- [ ] vector retrieval still works
+- [ ] metadata filtering works generically
+- [ ] hybrid retrieval works via rank fusion
+- [ ] RRF works and is deterministic
+- [ ] cross-encoder reranking works and can be disabled
+- [ ] query rewriting works and can be disabled
+- [ ] all four strategies (vector, bm25, hybrid, hybrid_reranked) are
+      configurable without code changes
+- [ ] retrieval diagnostics are available via `telco-rag retrieve --debug`
+- [ ] the evaluation dataset covers all eight question categories
+- [ ] vector/BM25/hybrid/reranked strategies are compared in the
+      evaluation matrix
+- [ ] query rewriting is experimentally evaluated (original vs rewritten)
+- [ ] per-stage latency is measured
+- [ ] retrieval failures are documented with the decision tree
+- [ ] unit tests pass
+- [ ] Level 2 grounding tests pass unchanged
+- [ ] experiments are documented in
+      `docs/levels/level-03-advanced-retrieval/experiments.md`
+- [ ] lessons learned are documented in
+      `docs/levels/level-03-advanced-retrieval/lessons-learned.md`
+- [ ] all Level 3 behavior is covered by tests
+
+### Exit Criteria
+
+Before moving beyond Level 3, the developer MUST be able to explain, from
+measured results rather than assumptions:
+
+1. which retrieval strategy works best for which type of Telco question
+   (semantic → vector, exact term → BM25, mixed → hybrid, large candidate
+   set → hybrid + reranker, poorly phrased → rewriting + hybrid — as
+   confirmed or refuted by `experiments.md`),
+2. why raw vector and BM25 scores must not be averaged,
+3. what RRF buys and what it costs,
+4. why the reranker may only reorder candidates it did not retrieve,
+5. why query rewriting is disabled by default,
+6. where the BM25 index sits in the truth hierarchy
+   (documents → chunks → indexes),
+7. how to attribute a retrieval failure to a specific stage,
+8. how each added component's latency compares with its quality gain.
+
+### Level 3 Completion Test
+
+The evaluation matrix and ablation study MUST be run and recorded, and one
+`--debug` trace MUST be inspected per strategy:
+
+```text
+1. vector      — semantic question
+2. bm25        — error-code / exact-terminology question
+3. hybrid      — mixed semantic + exact-terminology question
+4. hybrid_reranked — large candidate-set question, verify provenance fields
+5. hybrid + rewriting — poorly phrased question, verify both queries shown
+```
+
+For each trace, verify:
+
+```text
+strategy selected → candidates retrieved → fusion scores present
+→ reranker scores present (if enabled) → final ordering → provenance fields
+```
+
 ## Future Evolution
 
 Each level MUST grow out of documented limitations of the previous one
@@ -1013,10 +1754,17 @@ Level 10  CI/CD + DevSecOps
 Level 24  Enterprise RAG Platform
 ```
 
-The transition to Level 3 is justified by the question Level 2 cannot
+The transition to Level 3 was justified by the question Level 2 could not
 answer: what happens when the system cannot retrieve the right evidence in
-the first place? That motivates BM25, hybrid retrieval, metadata filtering,
-reranking, and query rewriting.
+the first place? Level 3 answers it with BM25, hybrid retrieval, metadata
+filtering, rank fusion, reranking, and query rewriting.
+
+The transition to Level 4 (Knowledge Lifecycle) will be justified by the
+problems Level 3 cannot solve — among them: document versioning, approval
+flow, effective dates, and index/corpus drift over time, all of which the
+derived-index truth hierarchy (Principle XXVIII) explicitly defers. Query
+decomposition and multi-hop retrieval remain deferred until an evaluation
+failure shows single-query retrieval is the limiting factor.
 
 ## Governance
 
@@ -1040,11 +1788,11 @@ reranking, and query rewriting.
   tied to an active-level problem MUST be deferred per Principle I.
 - **Level completion gate.** A maturity level MAY be declared complete only
   when all of its Definition of Done and Exit Criteria items are met.
-  Declaring Level 2 complete MUST NOT mark Level 1 metrics or tests as
-  obsolete.
+  Declaring Level 3 complete MUST NOT mark Level 1 metrics, Level 2
+  grounding behavior, or their tests as obsolete.
 - **Runtime guidance.** Day-to-day development guidance for the active level
-  lives in `docs/levels/level-02-grounded-rag/plan.md`; it MUST remain
+  lives in `docs/levels/level-03-advanced-retrieval/plan.md`; it MUST remain
   consistent with this constitution and MUST NOT weaken any NON-NEGOTIABLE
   principle.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-06 | **Last Amended**: 2026-10-07
+**Version**: 1.3.0 | **Ratified**: 2026-10-06 | **Last Amended**: 2026-10-08

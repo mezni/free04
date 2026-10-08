@@ -1,3 +1,8 @@
+---
+category: activation
+department: customer-care
+product: sim
+---
 # SIM Activation
 
 ## Symptoms

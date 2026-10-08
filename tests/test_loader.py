@@ -39,4 +39,36 @@ def test_discover_documents_empty_dir():
             discover_documents(tmpdir)
 
 
+def test_front_matter_parsed_into_document_metadata():
+    """US4/T029: YAML front matter becomes Document.metadata, stripped from content."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "doc.md"
+        path.write_text(
+            "---\ncategory: 5g\ndepartment: network-operations\ncode: 504\n---\n"
+            "# Title\n\nBody text.\n",
+            encoding="utf-8",
+        )
+        docs = discover_documents(tmpdir)
+        assert len(docs) == 1
+        doc = docs[0]
+        assert doc.metadata == {"category": "5g", "department": "network-operations", "code": 504}
+        assert doc.content.startswith("# Title")
+        assert not doc.content.startswith("---")
+        print("✓ front matter parsed into metadata and stripped from content")
+
+
+def test_documents_without_front_matter_keep_metadata_empty():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "plain.md"
+        path.write_text("# Just a heading\n\nBody.\n", encoding="utf-8")
+        docs = discover_documents(tmpdir)
+        assert docs[0].metadata == {}
+        assert docs[0].content.startswith("# Just a heading")
+        print("✓ no front matter -> empty metadata, content untouched")
+
+
 print("✓ Loader tests passed")
