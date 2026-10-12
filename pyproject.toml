@@ -1,0 +1,34 @@
+[project]
+name = "triagekit-agent"
+version = "0.1.0"
+description = "AI agent for support-ticket triage, built step by step in plain Python"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic",
+    "pydantic>=2",
+]
+
+[project.scripts]
+triage = "triagekit.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8,<0.10"]   # keep what uv generated
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "triagekit"
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov", "ruff"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
