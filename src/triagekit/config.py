@@ -1,19 +1,30 @@
 """Configuration settings for the triage kit."""
 
+import os
+
+_UNSET = object()
+
 
 class Settings:
-    """Load settings from environment or pass explicitly."""
+    """Load settings from environment or pass explicitly.
+
+    Values passed to the constructor win. When omitted, ``ANTHROPIC_API_KEY``
+    and ``TRIAGEKIT_MODEL`` are read from the environment (so ``--env-file .env``
+    works). Passing ``api_key=None`` explicitly still means "no key".
+    """
 
     def __init__(
         self,
-        api_key: str | None = None,
+        api_key: str | None = _UNSET,  # type: ignore[assignment]
         model: str | None = None,
         max_tokens: int | None = None,
         timeout: float | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.api_key = api_key
-        self.model = model or "claude-3-haiku-20240307"
+        self.api_key = (
+            os.environ.get("ANTHROPIC_API_KEY") if api_key is _UNSET else api_key
+        )
+        self.model = model or os.environ.get("TRIAGEKIT_MODEL") or "claude-3-haiku-20240307"
         self.max_tokens = max_tokens or 500
         self.timeout_s = timeout or 30.0
         self.max_retries = max_retries or 3
