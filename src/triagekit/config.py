@@ -21,9 +21,7 @@ class Settings:
         timeout: float | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.api_key = (
-            os.environ.get("ANTHROPIC_API_KEY") if api_key is _UNSET else api_key
-        )
+        self.api_key = os.environ.get("ANTHROPIC_API_KEY") if api_key is _UNSET else api_key
         self.model = model or os.environ.get("TRIAGEKIT_MODEL") or "claude-3-haiku-20240307"
         self.max_tokens = max_tokens or 500
         self.timeout_s = timeout or 30.0
