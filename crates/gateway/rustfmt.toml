@@ -1,0 +1,6 @@
+based_on_style = "rust"
+indent_style = "tab"
+indent_width = 8
+max_width = 100
+tab_spaces = true
+column_limit = 100

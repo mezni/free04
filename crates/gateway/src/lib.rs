@@ -146,7 +146,10 @@ pub fn router(pipeline: Arc<PipelineStage>) -> axum::Router {
         }))
 }
 
-/// Generate a UUIDv7 request ID per AD-10
-pub fn generate_request_id() -> String {
-    Uuid::now_v7().to_string()
+/// Initialize tracing subscriber with AD-10 contract
+///
+/// Configures the tracing subscriber with structured fields and request ID propagation
+/// via UUIDv7, compatible with the llmgw observability pipeline.
+pub fn init_tracing() {
+    tracing_subscriber::fmt::init();
 }

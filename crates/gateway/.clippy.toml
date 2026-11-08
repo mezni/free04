@@ -1,0 +1,8 @@
+[lints]
+clippy::pedantic = true
+allow = [
+    "unused_imports",
+    "missing_docs",
+    "dead_code",
+]
+warn = []

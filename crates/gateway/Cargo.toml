@@ -17,3 +17,9 @@ redis = { version = "1.8.1", features = ["aio", "tokio-comp"] }
 uuid = { version = "1.0", features = ["v7"] }
 tokio-stream = "0.1.0"
 futures = "0.3"
+opentelemetry = "0.33.1"
+opentelemetry_sdk = "0.33.1"
+prometheus = "0.14.0"
+reqwest = "0.13.5"
+
+tracing-opentelemetry = "0.18.0"
